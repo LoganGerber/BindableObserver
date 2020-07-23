@@ -74,7 +74,7 @@ export class SimpleObserver extends EventEmitter {
         }
 
         // Remove the oldest id if the cache limit is being exceeded
-        if (this.idCache.length === this.idCacheLimit) {
+        if (this.idCacheLimit > 0 && this.idCache.length === this.idCacheLimit) {
             this.idCache.shift();
         }
 
