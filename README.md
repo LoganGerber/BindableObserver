@@ -4,5 +4,4 @@ The idea behind SimpleObserver is to make an observer pattern that can work for 
 
 Task List:
 * Ability to change event handling from syncronous to asyncronous.
-* Ability to specify if a relay should only be received from or pushed to.
 * Research if IEvent should be replaced with/extend NodeJS's Event class.

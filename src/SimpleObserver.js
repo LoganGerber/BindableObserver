@@ -13,10 +13,17 @@ var __extends = (this && this.__extends) || (function () {
     };
 })();
 exports.__esModule = true;
-exports.SimpleObserver = void 0;
+exports.SimpleObserver = exports.RelayFlags = void 0;
 var events_1 = require("events");
 var guid_typescript_1 = require("guid-typescript");
 var sourceRelay = Symbol("sourceRelay");
+var RelayFlags;
+(function (RelayFlags) {
+    RelayFlags[RelayFlags["None"] = 0] = "None";
+    RelayFlags[RelayFlags["To"] = 1] = "To";
+    RelayFlags[RelayFlags["From"] = 2] = "From";
+    RelayFlags[RelayFlags["All"] = 3] = "All";
+})(RelayFlags = exports.RelayFlags || (exports.RelayFlags = {}));
 var SimpleObserver = /** @class */ (function (_super) {
     __extends(SimpleObserver, _super);
     function SimpleObserver() {
@@ -81,7 +88,10 @@ var SimpleObserver = /** @class */ (function (_super) {
         }
         for (var _a = 0, _b = this.relays; _a < _b.length; _a++) {
             var relayEntry = _b[_a];
-            var relay = relayEntry[0];
+            if (!(relayEntry.relayFlags & RelayFlags.To)) {
+                continue;
+            }
+            var relay = relayEntry.relay;
             if (relay !== originRelay) {
                 if (relay instanceof SimpleObserver) {
                     ret = relay.emit(event) || ret;
@@ -124,41 +134,49 @@ var SimpleObserver = /** @class */ (function (_super) {
         return _super.prototype.removeListener.call(this, event, listener);
     };
     // ability to attach a socket or other SimpleObserver
-    SimpleObserver.prototype.bind = function (relay) {
-        if (this.relays.find(function (element) { element[0] === relay; })) {
+    SimpleObserver.prototype.bind = function (relay, relayFlags) {
+        if (relayFlags === void 0) { relayFlags = RelayFlags.All; }
+        if (this.relays.find(function (element) { element.relay === relay; })) {
             return;
         }
-        // relay.eventNames() to get all the current event names bound to relay
-        var currentEvents = relay.eventNames();
-        var eventBubbleFunctions = [];
-        // For each name in the array, call relay.on(name, bubble)
-        for (var _i = 0, currentEvents_1 = currentEvents; _i < currentEvents_1.length; _i++) {
-            var event = currentEvents_1[_i];
-            var bubble = this.bubbleFunctionGenerator(relay, event);
-            eventBubbleFunctions.push([bubble, event]);
-            relay.on(event, bubble);
-        }
-        // Register a new listener on relay.on('newListener') to generate a new bubble function if necessary
-        var registerBubbleListener = this.registerNewBubbleFunctionGenerator(relay);
-        relay.on('newListener', registerBubbleListener);
+        // let registerBubbleListener: (event: string | symbol) => void;
+        // let eventBubbleFunctions: Array<[(...args: any[]) => void, string | symbol]> = [];
         // Register the list of event names for the relay internally for tracking
-        this.relays.push([relay, registerBubbleListener, eventBubbleFunctions]);
-        // TODO: Register a new listener on relay.on('removeListener') to see if a bubble event is no longer necessary in the relay. The intention behind this is to save memory in relays where the event isn't needed and can be deleted. However, this will also come with a performance hit, which may be not worth the effort.
-        // The trouble with this is that there may be multiple SimpleObservers that register bubble listeners. This means it will need to somehow differentiate between regular listeners and bubble listeners that came from a SimpleObserver (or some potential child of SimpleObserver, which may override bubbleFunctionGenerator)
+        this.relays.push({
+            relay: relay,
+            relayFlags: relayFlags,
+            newListenerCallback: undefined,
+            eventCallbacks: []
+        });
+        if (relayFlags & RelayFlags.From) {
+            this.bindFromRelay(relay);
+        }
     };
-    ;
     SimpleObserver.prototype.unbind = function (relay) {
-        var foundIndex = this.relays.findIndex(function (element) { element[0] === relay; });
+        var foundIndex = this.relays.findIndex(function (element) { element.relay === relay; });
+        if (foundIndex === -1) {
+            return;
+        }
+        this.unbindFromRelay(relay);
+        this.relays.splice(foundIndex, 1);
+    };
+    SimpleObserver.prototype.setRelayFlags = function (relay, flags) {
+        var foundIndex = this.relays.findIndex(function (element) { return element.relay === relay; });
         if (foundIndex === -1) {
             return;
         }
         var relayInfo = this.relays[foundIndex];
-        this.relays.splice(foundIndex, 1);
-        relay.removeListener('newListener', relayInfo[1]);
-        for (var _i = 0, _a = relayInfo[2]; _i < _a.length; _i++) {
-            var eventInfo = _a[_i];
-            relay.removeListener(eventInfo[1], eventInfo[0]);
+        if ((relayInfo.relayFlags & RelayFlags.From) !== (flags & RelayFlags.From)) {
+            if (flags & RelayFlags.From) {
+                // Relay events from the relay
+                this.bindFromRelay(relay);
+            }
+            else {
+                // Remove all relay events from the relay
+                this.unbindFromRelay(relay);
+            }
         }
+        relayInfo.relayFlags = flags;
     };
     SimpleObserver.prototype.changeEventForSuper = function (event) {
         if (typeof event === "object") {
@@ -194,14 +212,14 @@ var SimpleObserver = /** @class */ (function (_super) {
     SimpleObserver.prototype.registerNewBubbleFunctionGenerator = function (relay) {
         var _this = this;
         return function (event) {
-            var foundIndex = _this.relays.findIndex(function (element) { return element[0] === relay; });
+            var foundIndex = _this.relays.findIndex(function (element) { return element.relay === relay; });
             if (foundIndex === -1) {
                 return;
             }
-            var hasEvent = _this.relays[foundIndex][2].find(function (element) { return element[1] === event; });
+            var hasEvent = _this.relays[foundIndex].eventCallbacks.find(function (element) { return element[1] === event; });
             if (!hasEvent) {
                 var bubble = _this.bubbleFunctionGenerator(relay, event);
-                _this.relays[foundIndex][2].push([bubble, event]);
+                _this.relays[foundIndex].eventCallbacks.push([bubble, event]);
                 relay.on(event, bubble);
             }
         };
@@ -210,6 +228,35 @@ var SimpleObserver = /** @class */ (function (_super) {
         return 'id' in obj && guid_typescript_1.Guid.isGuid(obj.id) &&
             'name' in obj && (typeof obj.name === 'string' || typeof obj.name === 'symbol') &&
             'data' in obj;
+    };
+    SimpleObserver.prototype.bindFromRelay = function (relay) {
+        var relayInfo = this.relays.find(function (element) { return element.relay === relay; });
+        // relay.eventNames() to get all the current event names bound to relay
+        var currentEvents = relay.eventNames();
+        var eventBubbleFunctions = relayInfo.eventCallbacks;
+        // For each name in the array, call relay.on(name, bubble)
+        for (var _i = 0, currentEvents_1 = currentEvents; _i < currentEvents_1.length; _i++) {
+            var event = currentEvents_1[_i];
+            var bubble = this.bubbleFunctionGenerator(relay, event);
+            eventBubbleFunctions.push([bubble, event]);
+            relay.on(event, bubble);
+        }
+        // Register a new listener on relay.on('newListener') to generate a new bubble function if necessary
+        var registerBubbleListener = this.registerNewBubbleFunctionGenerator(relay);
+        relay.on('newListener', registerBubbleListener);
+        relayInfo.newListenerCallback = registerBubbleListener;
+        // TODO: Register a new listener on relay.on('removeListener') to see if a bubble event is no longer necessary in the relay. The intention behind this is to save memory in relays where the event isn't needed and can be deleted. However, this will also come with a performance hit, which may be not worth the effort.
+        // The trouble with this is that there may be multiple SimpleObservers that register bubble listeners. This means it will need to somehow differentiate between regular listeners and bubble listeners that came from a SimpleObserver (or some potential child of SimpleObserver, which may override bubbleFunctionGenerator)
+    };
+    SimpleObserver.prototype.unbindFromRelay = function (relay) {
+        var relayInfo = this.relays.find(function (element) { return element.relay === relay; });
+        relay.removeListener('newListener', relayInfo.newListenerCallback);
+        relayInfo.newListenerCallback = undefined;
+        for (var _i = 0, _a = relayInfo.eventCallbacks; _i < _a.length; _i++) {
+            var eventInfo = _a[_i];
+            relay.removeListener(eventInfo[1], eventInfo[0]);
+        }
+        relayInfo.eventCallbacks = [];
     };
     return SimpleObserver;
 }(events_1.EventEmitter));
