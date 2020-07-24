@@ -2,11 +2,11 @@ import { EventEmitter } from "events";
 
 import { Guid } from "guid-typescript";
 
-import { IEvent } from "./IEvent";
+import { Event } from "./Event";
 
 
-type Listener = (x: IEvent) => void;
-type Event = IEvent | string | symbol;
+type Listener = (x: Event) => void;
+type EventType = Event | string | symbol;
 type RelayEntry = {
     relay: EventEmitter,
     relayFlags: RelayFlags,
@@ -46,11 +46,11 @@ export class SimpleObserver extends EventEmitter {
     };
 
 
-    addListener(event: Event, listener: Listener): this {
+    addListener(event: EventType, listener: Listener): this {
         return this.on(event, listener);
     }
 
-    emit(event: Event, ...args: any[]): boolean {
+    emit(event: EventType, ...args: any[]): boolean {
         // Guarantee that event is an IEvent.
         if (typeof event !== "object") {
             // If the event isn't an object, then it's a string or a symbol.
@@ -109,35 +109,35 @@ export class SimpleObserver extends EventEmitter {
         return ret;
     }
 
-    off(event: Event, listener: Listener): this {
+    off(event: EventType, listener: Listener): this {
         return this.removeListener(event, listener);
     }
 
-    on(event: Event, listener: Listener): this {
+    on(event: EventType, listener: Listener): this {
         event = this.changeEventForSuper(event);
 
         return super.on(event, listener);
     }
 
-    once(event: Event, listener: Listener): this {
+    once(event: EventType, listener: Listener): this {
         event = this.changeEventForSuper(event);
 
         return super.once(event, listener);
     }
 
-    prependListener(event: Event, listener: Listener): this {
+    prependListener(event: EventType, listener: Listener): this {
         event = this.changeEventForSuper(event);
 
         return super.prependListener(event, listener);
     }
 
-    prependOnceListener(event: Event, listener: Listener): this {
+    prependOnceListener(event: EventType, listener: Listener): this {
         event = this.changeEventForSuper(event);
 
         return super.prependOnceListener(event, listener);
     }
 
-    removeAllListeners(event?: Event): this {
+    removeAllListeners(event?: EventType): this {
         if (event) {
             event = this.changeEventForSuper(event);
 
@@ -147,7 +147,7 @@ export class SimpleObserver extends EventEmitter {
         return super.removeAllListeners();
     }
 
-    removeListener(event: Event, listener: Listener): this {
+    removeListener(event: EventType, listener: Listener): this {
         event = this.changeEventForSuper(event);
 
         return super.removeListener(event, listener);
@@ -209,7 +209,7 @@ export class SimpleObserver extends EventEmitter {
     }
 
 
-    private changeEventForSuper(event: Event): string | symbol {
+    private changeEventForSuper(event: EventType): string | symbol {
         if (typeof event === "object") {
             event = event.name;
         }
@@ -219,7 +219,7 @@ export class SimpleObserver extends EventEmitter {
 
     private bubbleFunctionGenerator(relay: EventEmitter, event: string | symbol): (...args: any[]) => void {
         return (...args: any[]): void => {
-            let wrappedEvent: IEvent;
+            let wrappedEvent: Event;
 
             // TODO: It's possible the event was created from something that wasn't a SimpleObserver. In this case, if the first argument is an IEvent, it's possible the event was actually the data to the actual event that occured.
 
@@ -259,7 +259,7 @@ export class SimpleObserver extends EventEmitter {
         };
     }
 
-    private static isIEvent(obj: any): obj is IEvent {
+    private static isIEvent(obj: any): obj is Event {
         return 'id' in obj && Guid.isGuid(obj.id) &&
             'name' in obj && (typeof obj.name === 'string' || typeof obj.name === 'symbol') &&
             'data' in obj;
