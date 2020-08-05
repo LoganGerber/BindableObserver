@@ -1,17 +1,20 @@
 {
-  "name": "simpleobserver",
-  "version": "1.0.0",
-  "description": "Simple implementation of an observer pattern, capable of online connections",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "author": "",
-  "license": "MIT",
-  "dependencies": {
-    "guid-typescript": "^1.0.9"
-  },
-  "devDependencies": {
-    "@types/node": "^14.0.24"
-  }
+    "name": "simpleobserver",
+    "version": "1.0.0",
+    "description": "Simple implementation of an observer pattern that can be chained to other EventEmitters.",
+    "main": "./src/SimpleObserver.js",
+    "scripts": {
+        "test": "tap"
+    },
+    "author": "Logan Gerber",
+    "license": "MIT",
+    "dependencies": {
+        "guid-typescript": "^1.0.9"
+    },
+    "devDependencies": {
+        "@types/node": "^14.0.24",
+        "@types/tap": "^14.10.0",
+        "tap": "^14.10.8",
+        "ws": "^7.3.1"
+    }
 }
