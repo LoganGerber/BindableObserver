@@ -1,8 +1,13 @@
 import { Guid } from "guid-typescript";
 
-export interface Event extends Object {
+export abstract class Event {
     readonly id: Guid;
-    // TODO: Is name okay to be a symbol?
-    name: string | symbol;
+    readonly name: string | symbol;
     data: any;
+
+    constructor(name?: string | symbol, data?: any) {
+        this.id = Guid.create();
+        this.name = name;
+        this.data = data;
+    }
 }

@@ -3,18 +3,16 @@ import { EventEmitter } from "events";
 import { Guid } from "guid-typescript";
 
 import { Event } from "./Event";
+import { EventInvokedEvent } from "./EventInvokedEvent";
 
+// TODO: Documentation
 
 type Listener = (x: Event) => void;
-type EventType = Event | string | symbol;
+type EventType<T extends Event> = Event | (new (...args: any) => T);
 type RelayEntry = {
-    relay: EventEmitter,
-    relayFlags: RelayFlags,
-    newListenerCallback: (event: string | symbol) => void,
-    eventCallbacks: Array<[(...args: any[]) => void, string | symbol]>;
+    relay: SimpleObserver,
+    relayFlags: RelayFlags;
 };
-
-const sourceRelay: unique symbol = Symbol("sourceRelay");
 
 export enum RelayFlags {
     None = 0,
@@ -23,13 +21,18 @@ export enum RelayFlags {
     All = ~(~0 << 2)
 }
 
-export class SimpleObserver extends EventEmitter {
+export class SimpleObserver {
+    private internalEmitter: EventEmitter = new EventEmitter();
     private relays: Array<RelayEntry> = [];
     private idCache: Guid[] = [];
     private idCacheLimit: number = 100;
 
 
     // Manage internal guid cache
+    getIdCacheLimit(): number {
+        return this.idCacheLimit;
+    }
+
     setIdCacheLimit(limit: number): void {
         this.idCacheLimit = limit;
 
@@ -41,36 +44,26 @@ export class SimpleObserver extends EventEmitter {
         this.idCache.splice(0, idCacheOverflow);
     }
 
+    getIdCacheSize(): number {
+        return this.idCache.length;
+    }
+
     clearIdCache(): void {
         this.idCache = [];
     };
 
 
-    addListener(event: EventType, listener: Listener): this {
-        return this.on(event, listener);
+    addListener<T extends Event>(event: EventType<T>, listener: Listener): this {
+        let eventName = this.getRegisterableEventName(event);
+
+        this.internalEmitter.addListener(eventName, listener);
+        return this;
     }
 
-    emit(event: EventType, ...args: any[]): boolean {
-        // Guarantee that event is an IEvent.
-        if (typeof event !== "object") {
-            // If the event isn't an object, then it's a string or a symbol.
-            // Check if the first argument is an event. If it is, assume this is the true event.
-            if (args.length > 0 && SimpleObserver.isIEvent(args[0])) {
-                event = args[0];
-            }
-            // Else, create an event using the args given.
-            else {
-                event = {
-                    id: Guid.create(),
-                    name: event,
-                    data: args
-                };
-            }
-        }
-
+    emit(event: Event): boolean {
         // Check if the event has been processed already.
         if (this.idCache.includes(event.id)) {
-            return;
+            return false;
         }
 
         // Remove the oldest id if the cache limit is being exceeded
@@ -82,223 +75,149 @@ export class SimpleObserver extends EventEmitter {
         this.idCache.push(event.id);
 
 
-        let ret = super.emit(event.name, event);
+        let ret = this.internalEmitter.emit(event.constructor.name, event);
 
-        // Go through each relay, emit the event on the relay
-        let originRelay: EventEmitter | undefined = undefined;
-        if (event.hasOwnProperty(sourceRelay)) {
-            originRelay = event[sourceRelay];
-        }
-
-        for (let relayEntry of this.relays) {
-            if (!(relayEntry.relayFlags & RelayFlags.To)) {
-                continue;
-            }
-
-            let relay = relayEntry.relay;
-            if (relay !== originRelay) {
-                if (relay instanceof SimpleObserver) {
-                    ret = relay.emit(event) || ret;
-                }
-                else {
-                    ret = relay.emit(event.name, event) || ret;
-                }
-            }
-        }
+        ret = this.internalEmitter.emit(EventInvokedEvent.constructor.name, new EventInvokedEvent(event)) || ret;
 
         return ret;
     }
 
-    off(event: EventType, listener: Listener): this {
-        return this.removeListener(event, listener);
+    off<T extends Event>(event: EventType<T>, listener: Listener): this {
+        let eventName = this.getRegisterableEventName(event);
+        this.internalEmitter.off(eventName, listener);
+
+        return this;
     }
 
-    on(event: EventType, listener: Listener): this {
-        event = this.changeEventForSuper(event);
+    on<T extends Event>(event: EventType<T>, listener: Listener): this {
+        let eventName = this.getRegisterableEventName(event);
+        this.internalEmitter.on(eventName, listener);
 
-        return super.on(event, listener);
+        return this;
     }
 
-    once(event: EventType, listener: Listener): this {
-        event = this.changeEventForSuper(event);
+    once<T extends Event>(event: EventType<T>, listener: Listener): this {
+        let eventName = this.getRegisterableEventName(event);
 
-        return super.once(event, listener);
+        this.internalEmitter.once(eventName, listener);
+        return this;
     }
 
-    prependListener(event: EventType, listener: Listener): this {
-        event = this.changeEventForSuper(event);
+    prependListener<T extends Event>(event: EventType<T>, listener: Listener): this {
+        let eventName = this.getRegisterableEventName(event);
 
-        return super.prependListener(event, listener);
+        this.internalEmitter.prependListener(eventName, listener);
+        return this;
     }
 
-    prependOnceListener(event: EventType, listener: Listener): this {
-        event = this.changeEventForSuper(event);
+    prependOnceListener<T extends Event>(event: EventType<T>, listener: Listener): this {
+        let eventName = this.getRegisterableEventName(event);
 
-        return super.prependOnceListener(event, listener);
+        this.internalEmitter.prependOnceListener(eventName, listener);
+        return this;
     }
 
-    removeAllListeners(event?: EventType): this {
+    removeAllListeners<T extends Event>(event?: EventType<T>): this {
         if (event) {
-            event = this.changeEventForSuper(event);
+            let eventName = this.getRegisterableEventName(event);
 
-            return super.removeAllListeners(event);
+            this.internalEmitter.removeAllListeners(eventName);
+        }
+        else {
+            this.internalEmitter.removeAllListeners();
         }
 
-        return super.removeAllListeners();
+        return this;
     }
 
-    removeListener(event: EventType, listener: Listener): this {
-        event = this.changeEventForSuper(event);
+    removeListener<T extends Event>(event: EventType<T>, listener: Listener): this {
+        let eventName = this.getRegisterableEventName(event);
 
-        return super.removeListener(event, listener);
+        this.internalEmitter.removeListener(eventName, listener);
+        return this;
+    }
+
+    hasListener<T extends Event>(event: EventType<T>, listener: Listener): boolean {
+        let eventName = this.getRegisterableEventName(event);
+        return this.internalEmitter.listeners(eventName).includes(listener);
     }
 
 
-    // ability to attach a socket or other SimpleObserver
-    bind(relay: EventEmitter, relayFlags: RelayFlags = RelayFlags.All): void {
-        if (this.relays.find((element) => { element.relay === relay; })) {
-            return;
+    // ability to attach another SimpleObserver
+    bind(relay: SimpleObserver, relayFlags: RelayFlags = RelayFlags.All): boolean {
+        let found = this.relays.find(element => element.relay === relay);
+        if (found) {
+            return false;
         }
 
-        // let registerBubbleListener: (event: string | symbol) => void;
-        // let eventBubbleFunctions: Array<[(...args: any[]) => void, string | symbol]> = [];
-
-        // Register the list of event names for the relay internally for tracking
-        this.relays.push({
+        found = {
             relay: relay,
-            relayFlags: relayFlags,
-            newListenerCallback: undefined,
-            eventCallbacks: []
-        });
+            relayFlags: relayFlags
+        };
 
-        if (relayFlags & RelayFlags.From) {
-            this.bindFromRelay(relay);
+        // Binding to a relay means to bind this.emit to an EventInvokedEvent on relay.
+        if (relayFlags & RelayFlags.From && !relay.hasListener(EventInvokedEvent, this.emit)) {
+            relay.on(EventInvokedEvent, this.emit);
+        }
+
+        if (relayFlags & RelayFlags.To && !this.hasListener(EventInvokedEvent, relay.emit)) {
+            this.on(EventInvokedEvent, relay.emit);
         }
     }
 
-    unbind(relay: EventEmitter): void {
-        let foundIndex = this.relays.findIndex((element) => { element.relay === relay; });
-        if (foundIndex === -1) {
-            return;
-        }
-
-        this.unbindFromRelay(relay);
-
-        this.relays.splice(foundIndex, 1);
-    }
-
-    setRelayFlags(relay: EventEmitter, flags: RelayFlags): void {
+    unbind(relay: SimpleObserver): void {
         let foundIndex = this.relays.findIndex(element => element.relay === relay);
         if (foundIndex === -1) {
             return;
         }
 
-        let relayInfo = this.relays[foundIndex];
-        if ((relayInfo.relayFlags & RelayFlags.From) !== (flags & RelayFlags.From)) {
-            if (flags & RelayFlags.From) {
-                // Relay events from the relay
-                this.bindFromRelay(relay);
-            }
-            else {
-                // Remove all relay events from the relay
-                this.unbindFromRelay(relay);
-            }
+        let found = this.relays[foundIndex];
+        this.relays.splice(foundIndex, 1);
+
+        if (found.relayFlags & RelayFlags.From) {
+            found.relay.removeListener(EventInvokedEvent, this.emit);
         }
 
-        relayInfo.relayFlags = flags;
+        if (found.relayFlags & RelayFlags.To) {
+            this.removeListener(EventInvokedEvent, found.relay.emit);
+        }
     }
 
-
-    private changeEventForSuper(event: EventType): string | symbol {
-        if (typeof event === "object") {
-            event = event.name;
+    setRelayFlags(relay: SimpleObserver, flags: RelayFlags): void {
+        let found = this.relays.find(element => element.relay === relay);
+        if (!found) {
+            return;
         }
 
-        return event;
-    }
-
-    private bubbleFunctionGenerator(relay: EventEmitter, event: string | symbol): (...args: any[]) => void {
-        return (...args: any[]): void => {
-            let wrappedEvent: Event;
-
-            // TODO: It's possible the event was created from something that wasn't a SimpleObserver. In this case, if the first argument is an IEvent, it's possible the event was actually the data to the actual event that occured.
-
-            // This isn't fixed by simply checking if the event name and the IEvent.name are equal, because it could be an event nested within the same kind of event.
-
-            // This issue is caused by an inherent loss of information when passing a string or symbol as the event, rather than the IEvent itself.
-            if (args.length > 0 && SimpleObserver.isIEvent(args[0])) {
-                wrappedEvent = args[0];
+        if (flags & RelayFlags.From) {
+            if (!(found.relayFlags & RelayFlags.From)) {
+                found.relay.on(EventInvokedEvent, this.emit);
+                found.relayFlags = found.relayFlags | RelayFlags.From;
             }
-            else {
-                wrappedEvent = {
-                    id: Guid.create(),
-                    name: event,
-                    data: args
-                };
-            }
-
-            wrappedEvent[sourceRelay] = relay;
-
-            this.emit(wrappedEvent);
-        };
-    }
-
-    private registerNewBubbleFunctionGenerator(relay: EventEmitter): (event: string | symbol) => void {
-        return (event: string | symbol): void => {
-            let foundIndex = this.relays.findIndex(element => element.relay === relay);
-            if (foundIndex === -1) {
-                return;
-            }
-
-            let hasEvent = this.relays[foundIndex].eventCallbacks.find(element => element[1] === event);
-            if (!hasEvent) {
-                let bubble = this.bubbleFunctionGenerator(relay, event);
-                this.relays[foundIndex].eventCallbacks.push([bubble, event]);
-                relay.on(event, bubble);
-            }
-        };
-    }
-
-    private static isIEvent(obj: any): obj is Event {
-        return 'id' in obj && Guid.isGuid(obj.id) &&
-            'name' in obj && (typeof obj.name === 'string' || typeof obj.name === 'symbol') &&
-            'data' in obj;
-    }
-
-    private bindFromRelay(relay: EventEmitter): void {
-        let relayInfo = this.relays.find(element => element.relay === relay);
-
-        // relay.eventNames() to get all the current event names bound to relay
-        let currentEvents = relay.eventNames();
-
-        let eventBubbleFunctions = relayInfo.eventCallbacks;
-
-        // For each name in the array, call relay.on(name, bubble)
-        for (let event of currentEvents) {
-            let bubble = this.bubbleFunctionGenerator(relay, event);
-            eventBubbleFunctions.push([bubble, event]);
-            relay.on(event, bubble);
+        }
+        else if (found.relayFlags & RelayFlags.From) {
+            found.relay.removeListener(EventInvokedEvent, this.emit);
+            found.relayFlags = found.relayFlags & ~RelayFlags.From;
         }
 
-        // Register a new listener on relay.on('newListener') to generate a new bubble function if necessary
-        let registerBubbleListener = this.registerNewBubbleFunctionGenerator(relay);
-        relay.on('newListener', registerBubbleListener);
-        relayInfo.newListenerCallback = registerBubbleListener;
-
-        // TODO: Register a new listener on relay.on('removeListener') to see if a bubble event is no longer necessary in the relay. The intention behind this is to save memory in relays where the event isn't needed and can be deleted. However, this will also come with a performance hit, which may be not worth the effort.
-        // The trouble with this is that there may be multiple SimpleObservers that register bubble listeners. This means it will need to somehow differentiate between regular listeners and bubble listeners that came from a SimpleObserver (or some potential child of SimpleObserver, which may override bubbleFunctionGenerator)
+        if (flags & RelayFlags.To) {
+            if (!(found.relayFlags & RelayFlags.To)) {
+                this.on(EventInvokedEvent, found.relay.emit);
+                found.relayFlags = found.relayFlags | RelayFlags.To;
+            }
+        }
+        else if (found.relayFlags & RelayFlags.To) {
+            this.removeListener(EventInvokedEvent, found.relay.emit);
+            found.relayFlags = found.relayFlags & ~RelayFlags.To;
+        }
     }
 
-    private unbindFromRelay(relay: EventEmitter): void {
-        let relayInfo = this.relays.find(element => element.relay === relay);
 
-        relay.removeListener('newListener', relayInfo.newListenerCallback);
-        relayInfo.newListenerCallback = undefined;
-
-        for (let eventInfo of relayInfo.eventCallbacks) {
-            relay.removeListener(eventInfo[1], eventInfo[0]);
+    private getRegisterableEventName<T extends Event>(event: EventType<T>): string {
+        if (typeof event === "function") {
+            return event.name;
         }
 
-        relayInfo.eventCallbacks = [];
+        return event.constructor.name;
     }
 }
