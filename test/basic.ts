@@ -1,7 +1,7 @@
 import * as tap from "tap";
 import { EventObserver, RelayFlags } from "../src/EventObserver";
 import { Event } from "../src/Event";
-import { EventInvokedEvent } from "../src/EventInvokedEvent";
+import { EmitEvent } from "../src/EmitEvent";
 
 class TestEvent1 extends Event { name() { return "TestEvent1"; } };
 class TestEvent2 extends Event { name() { return "TestEvent2"; } };
@@ -316,7 +316,7 @@ tap.test("emit() emits an EventInvokedEvent for an event", t => {
     let event = new TestEvent1();
     let executed = false;
 
-    obs.on(EventInvokedEvent, e => {
+    obs.on(EmitEvent, e => {
         executed = e.data.id.equals(event.id);
     });
     obs.emit(event);
