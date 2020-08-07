@@ -11,44 +11,44 @@ import { EventInvokedEvent } from "./EventInvokedEvent";
 type Listener = (x: Event) => void;
 
 /**
- * Valid types for passing to most {@link SimpleObserver} functions that take an
+ * Valid types for passing to most {@link EventObserver} functions that take an
  * event.
  * 
  * The only function that does not use this is
- * {@link SimpleObserver.prototype.emit}, as it requires specifically an Event.
+ * {@link EventObserver.prototype.emit}, as it requires specifically an Event.
  * 
  * This type allows the user to, for example, call
  * ```ts
- *  mySimpleObserver.on(MyEventType, () => {});
+ *  myEventObserver.on(MyEventType, () => {});
  * ```
  * or
  * ```ts
  * let eventInstance = new MyEventType();
- * mySimpleObserver.on(eventInstance, () => {});
+ * myEventObserver.on(eventInstance, () => {});
  * ```
  * and both behave identically.
  */
 type EventType<T extends Event> = Event | (new (...args: any) => T);
 
 /**
- * Structure for tracking when two {@link SimpleObserver}s are bound together
- * using {@link SimpleObserver.prototype.bind}.
+ * Structure for tracking when two {@link EventObserver}s are bound together
+ * using {@link EventObserver.prototype.bind}.
  * 
  * The bubble functions need to be stored so that they can be unbound later on
- * if the two {@link SimpleObserver}s are unbound from one another.
+ * if the two {@link EventObserver}s are unbound from one another.
  * 
  * The reason both the "from" bubble function and "to" bubble functions are
- * tracked is given in the {@link SimpleObserver.prototype.bind} documentation.
+ * tracked is given in the {@link EventObserver.prototype.bind} documentation.
  */
 type RelayEntry = {
-    relay: SimpleObserver,
+    relay: EventObserver,
     fromBubbleFunction: (event: Event) => void,
     toBubbleFunction: (event: Event) => void,
 };
 
 
 /**
- * Flags used to track how two {@link SimpleObserver}s are bound.
+ * Flags used to track how two {@link EventObserver}s are bound.
  * 
  * - RelayFlags.From sends the bound observer's events to the binding observer.
  * - RelayFlags.To sends the binding observer's events to the bound observer.
@@ -63,28 +63,28 @@ export enum RelayFlags {
 }
 
 /**
- * Implementation of an Observer pattern bindable to other SimpleObservers.
+ * Implementation of an Observer pattern bindable to other EventObservers.
  * 
- * SimpleObserver is not an EventEmitter, and cannot be used as an EventEmitter.
+ * EventObserver is not an EventEmitter, and cannot be used as an EventEmitter.
  * This is because anywhere where an EventEmitter would accept a string or
- * symbol as an event, the SimpleObserver takes an Event object.
+ * symbol as an event, the EventObserver takes an Event object.
  * 
- * The SimpleObserver takes Event objects because it needs to track each event's
- * id. This is so that when two or more SimpleObservers are bound to one
+ * The EventObserver takes Event objects because it needs to track each event's
+ * id. This is so that when two or more EventObservers are bound to one
  * another, an event is not infinitely emitted between the two.
  * 
- * Despite the fact that SimpleObserver cannot be used as an EventEmitter, it
+ * Despite the fact that EventObserver cannot be used as an EventEmitter, it
  * shares all the same function names with EventEmitter. This is to make the
  * functions intuitive for the user.
  */
-export class SimpleObserver {
+export class EventObserver {
     /**
      * Underlying EventEmitter used to handle event binding and emit.
      */
     private internalEmitter: EventEmitter = new EventEmitter();
 
     /**
-     * List of {@link SimpleObserver}s bound to this {@link SimpleObserver}, as
+     * List of {@link EventObserver}s bound to this {@link EventObserver}, as
      * well as the functions registered to bind the two.
      */
     private relays: Array<RelayEntry> = [];
@@ -119,12 +119,12 @@ export class SimpleObserver {
      * Setting the limit to <= 0 will remove the limit.
      * 
      * More info on how ids are stored can be found in
-     * {@link SimpleObserver.prototype.emit} documentation.
+     * {@link EventObserver.prototype.emit} documentation.
      * 
      * @param limit The maximum number of ids to keep in cache. Setting to <= 0
      * removes the limit.
      * 
-     * @see SimpleObserver.prototype.on for info about storing ids in cache.
+     * @see EventObserver.prototype.on for info about storing ids in cache.
      */
     setIdCacheLimit(limit: number): void {
         if (limit <= 0) {
@@ -156,10 +156,10 @@ export class SimpleObserver {
 
 
     /**
-     * @alias SimpleObserver.prototype.on
+     * @alias EventObserver.prototype.on
      */
     addListener<T extends Event>(event: EventType<T>, listener: Listener): this {
-        let eventName = SimpleObserver.getRegisterableEventName(event);
+        let eventName = EventObserver.getRegisterableEventName(event);
 
         this.internalEmitter.addListener(eventName, listener);
         return this;
@@ -207,7 +207,7 @@ export class SimpleObserver {
     }
 
     /**
-     * @alias SimpleObserver.prototype.removeListener
+     * @alias EventObserver.prototype.removeListener
      */
     off<T extends Event>(event: EventType<T>, listener: Listener): this {
         return this.removeListener(event, listener);
@@ -227,7 +227,7 @@ export class SimpleObserver {
      * @returns Reference to self.
      */
     on<T extends Event>(event: EventType<T>, listener: Listener): this {
-        let eventName = SimpleObserver.getRegisterableEventName(event);
+        let eventName = EventObserver.getRegisterableEventName(event);
         this.internalEmitter.on(eventName, listener);
 
         return this;
@@ -245,7 +245,7 @@ export class SimpleObserver {
      * @returns Reference to self.
      */
     once<T extends Event>(event: EventType<T>, listener: Listener): this {
-        let eventName = SimpleObserver.getRegisterableEventName(event);
+        let eventName = EventObserver.getRegisterableEventName(event);
 
         this.internalEmitter.once(eventName, listener);
         return this;
@@ -264,7 +264,7 @@ export class SimpleObserver {
      * @returns Reference to self.
      */
     prependListener<T extends Event>(event: EventType<T>, listener: Listener): this {
-        let eventName = SimpleObserver.getRegisterableEventName(event);
+        let eventName = EventObserver.getRegisterableEventName(event);
 
         this.internalEmitter.prependListener(eventName, listener);
         return this;
@@ -283,7 +283,7 @@ export class SimpleObserver {
      * @returns Reference to self.
      */
     prependOnceListener<T extends Event>(event: EventType<T>, listener: Listener): this {
-        let eventName = SimpleObserver.getRegisterableEventName(event);
+        let eventName = EventObserver.getRegisterableEventName(event);
 
         this.internalEmitter.prependOnceListener(eventName, listener);
         return this;
@@ -300,7 +300,7 @@ export class SimpleObserver {
      */
     removeAllListeners<T extends Event>(event?: EventType<T>): this {
         if (event) {
-            let eventName = SimpleObserver.getRegisterableEventName(event);
+            let eventName = EventObserver.getRegisterableEventName(event);
 
             this.internalEmitter.removeAllListeners(eventName);
         }
@@ -320,7 +320,7 @@ export class SimpleObserver {
      * @returns Reference to self.
      */
     removeListener<T extends Event>(event: EventType<T>, listener: Listener): this {
-        let eventName = SimpleObserver.getRegisterableEventName(event);
+        let eventName = EventObserver.getRegisterableEventName(event);
 
         this.internalEmitter.removeListener(eventName, listener);
         return this;
@@ -335,13 +335,13 @@ export class SimpleObserver {
      * @returns True if the listener is bound to the event, false otherwise.
      */
     hasListener<T extends Event>(event: EventType<T>, listener: Listener): boolean {
-        let eventName = SimpleObserver.getRegisterableEventName(event);
+        let eventName = EventObserver.getRegisterableEventName(event);
         return this.internalEmitter.listeners(eventName).includes(listener);
     }
 
 
     /**
-     * Bind a SimpleObserver to this SimpleObserver.
+     * Bind a EventObserver to this EventObserver.
      * 
      * Bound observers emit their events on the other observer as defined by
      * the RelayFlags supplied.
@@ -353,11 +353,11 @@ export class SimpleObserver {
      * 
      * If no RelayFlags argument is provided, RelayFlags.All is used as default.
      * 
-     * @param relay SimpleObserver to bind to this observer.
+     * @param relay EventObserver to bind to this observer.
      * @param relayFlags Direction events should be relayed. Default
      * RelayFlags.All.
      */
-    bind(relay: SimpleObserver, relayFlags: RelayFlags = RelayFlags.All): void {
+    bind(relay: EventObserver, relayFlags: RelayFlags = RelayFlags.All): void {
         let found = this.relays.find(element => element.relay === relay);
         if (!found) {
             found = {
@@ -372,7 +372,7 @@ export class SimpleObserver {
         // Binding to a relay means to bind this.emit to an EventInvokedEvent on relay.
         if (relayFlags & RelayFlags.From) {
             if (!found.fromBubbleFunction) {
-                let bubble = SimpleObserver.generateBubbleFunction(this);
+                let bubble = EventObserver.generateBubbleFunction(this);
                 relay.on(EventInvokedEvent, bubble);
                 found.fromBubbleFunction = bubble;
             }
@@ -384,7 +384,7 @@ export class SimpleObserver {
 
         if (relayFlags & RelayFlags.To) {
             if (!found.toBubbleFunction) {
-                let bubble = SimpleObserver.generateBubbleFunction(relay);
+                let bubble = EventObserver.generateBubbleFunction(relay);
                 this.on(EventInvokedEvent, bubble);
                 found.toBubbleFunction = bubble;
             }
@@ -396,14 +396,14 @@ export class SimpleObserver {
     }
 
     /**
-     * Check how a SimpleObserver is bound to this observer.
+     * Check how a EventObserver is bound to this observer.
      * 
-     * @param relay SimpleObserver to check.
+     * @param relay EventObserver to check.
      * @returns RelayFlags specifying the direction events are passed between
      * the two observers. If relay is not bound to this observer, the function
      * returns `undefined`.
      */
-    checkBinding(relay: SimpleObserver): RelayFlags | undefined {
+    checkBinding(relay: EventObserver): RelayFlags | undefined {
         let found = this.relays.find(e => e.relay === relay);
         if (!found) {
             return undefined;
@@ -415,14 +415,14 @@ export class SimpleObserver {
     }
 
     /**
-     * Unbind a SimpleObserver from this SimpleObserver.
+     * Unbind a EventObserver from this EventObserver.
      * 
      * If the provided observer is not bound to this observer, this is a no-op
      * function.
      * 
-     * @param relay SimpleObserver to unbind from this.
+     * @param relay EventObserver to unbind from this.
      */
-    unbind(relay: SimpleObserver): void {
+    unbind(relay: EventObserver): void {
         let foundIndex = this.relays.findIndex(element => element.relay === relay);
         if (foundIndex === -1) {
             return;
@@ -443,13 +443,13 @@ export class SimpleObserver {
 
     /**
      * Create the function that will be used to relay events from one
-     * SimpleObserver to another.
+     * EventObserver to another.
      * 
-     * @param observer The SimpleObserver whose emit function will be called.
+     * @param observer The EventObserver whose emit function will be called.
      * @returns A function that is bindable to an event and that will call
      * observer.emit, emitting an EventInvokedEvent provided as a parameter.
      */
-    private static generateBubbleFunction(observer: SimpleObserver): (event: EventInvokedEvent) => void {
+    private static generateBubbleFunction(observer: EventObserver): (event: EventInvokedEvent) => void {
         return (event: EventInvokedEvent) => {
             observer.emit(event.data);
         };
