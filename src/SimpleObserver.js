@@ -3,6 +3,9 @@ exports.__esModule = true;
 exports.SimpleObserver = exports.RelayFlags = void 0;
 var events_1 = require("events");
 var EventInvokedEvent_1 = require("./EventInvokedEvent");
+/**
+ * Flags used to track how two SimpleObservers are bound.
+ */
 var RelayFlags;
 (function (RelayFlags) {
     RelayFlags[RelayFlags["None"] = 0] = "None";
@@ -10,6 +13,11 @@ var RelayFlags;
     RelayFlags[RelayFlags["From"] = 2] = "From";
     RelayFlags[RelayFlags["All"] = 3] = "All";
 })(RelayFlags = exports.RelayFlags || (exports.RelayFlags = {}));
+/**
+ * Implementation of an Observer pattern bindable to other SimpleObservers.
+ *
+ *
+ */
 var SimpleObserver = /** @class */ (function () {
     function SimpleObserver() {
         this.internalEmitter = new events_1.EventEmitter();
