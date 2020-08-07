@@ -4,10 +4,12 @@ import { Event } from "./Event";
  * Event executed when another event is emitted by an EventObserver.
  */
 export class EmitEvent extends Event {
-    data: Event;
+    emitted: Event;
 
-    constructor(data: Event) {
-        super(data);
+    constructor(event: Event) {
+        super();
+
+        this.emitted = event;
     }
 
     name(): string | symbol {

@@ -5,11 +5,9 @@ import { Guid } from "guid-typescript";
  */
 export abstract class Event {
     readonly id: Guid;
-    data: any;
 
-    constructor(data?: any) {
+    constructor() {
         this.id = Guid.create();
-        this.data = data;
     }
 
     /**

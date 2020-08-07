@@ -20,8 +20,10 @@ var Event_1 = require("./Event");
  */
 var EmitEvent = /** @class */ (function (_super) {
     __extends(EmitEvent, _super);
-    function EmitEvent(data) {
-        return _super.call(this, data) || this;
+    function EmitEvent(event) {
+        var _this = _super.call(this) || this;
+        _this.emitted = event;
+        return _this;
     }
     EmitEvent.prototype.name = function () {
         return "Event Invoked";

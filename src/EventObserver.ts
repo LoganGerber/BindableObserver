@@ -451,7 +451,7 @@ export class EventObserver {
      */
     private static generateBubbleFunction(observer: EventObserver): (event: EmitEvent) => void {
         return (event: EmitEvent) => {
-            observer.emit(event.data);
+            observer.emit(event.emitted);
         };
     }
 

@@ -363,7 +363,7 @@ var EventObserver = /** @class */ (function () {
      */
     EventObserver.generateBubbleFunction = function (observer) {
         return function (event) {
-            observer.emit(event.data);
+            observer.emit(event.emitted);
         };
     };
     /**
