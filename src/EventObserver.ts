@@ -11,11 +11,11 @@ import { EmitEvent } from "./EmitEvent";
 type Listener = (x: Event) => void;
 
 /**
- * Valid types for passing to most {@link EventObserver} functions that take an
+ * Valid types for passing to most EventObserver functions that take an
  * event.
  * 
- * The only function that does not use this is
- * {@link EventObserver.prototype.emit}, as it requires specifically an Event.
+ * The only function that does not use this is EventObserver.prototype.emit, as
+ * it requires specifically an Event.
  * 
  * This type allows the user to, for example, call
  * ```ts
@@ -31,14 +31,14 @@ type Listener = (x: Event) => void;
 type EventType<T extends Event> = Event | (new (...args: any) => T);
 
 /**
- * Structure for tracking when two {@link EventObserver}s are bound together
- * using {@link EventObserver.prototype.bind}.
+ * Structure for tracking when two EventObservers are bound together
+ * using EventObserver.prototype.bind.
  * 
  * The bubble functions need to be stored so that they can be unbound later on
- * if the two {@link EventObserver}s are unbound from one another.
+ * if the two EventObservers are unbound from one another.
  * 
  * The reason both the "from" bubble function and "to" bubble functions are
- * tracked is given in the {@link EventObserver.prototype.bind} documentation.
+ * tracked is given in the EventObserver.prototype.bind documentation.
  */
 type RelayEntry = {
     relay: EventObserver,
@@ -48,7 +48,7 @@ type RelayEntry = {
 
 
 /**
- * Flags used to track how two {@link EventObserver}s are bound.
+ * Flags used to track how two EventObservers are bound.
  * 
  * - RelayFlags.From sends the bound observer's events to the binding observer.
  * - RelayFlags.To sends the binding observer's events to the bound observer.
@@ -84,7 +84,7 @@ export class EventObserver {
     private internalEmitter: EventEmitter = new EventEmitter();
 
     /**
-     * List of {@link EventObserver}s bound to this {@link EventObserver}, as
+     * List of EventObservers bound to this EventObserver, as
      * well as the functions registered to bind the two.
      */
     private relays: Array<RelayEntry> = [];
@@ -119,7 +119,7 @@ export class EventObserver {
      * Setting the limit to <= 0 will remove the limit.
      * 
      * More info on how ids are stored can be found in
-     * {@link EventObserver.prototype.emit} documentation.
+     * EventObserver.prototype.emit documentation.
      * 
      * @param limit The maximum number of ids to keep in cache. Setting to <= 0
      * removes the limit.
@@ -234,7 +234,7 @@ export class EventObserver {
     }
 
     /**
-     * Same as {@link on}, but the listener is immediately unbound once it is
+     * Same as EventObserver.prototype.on, but the listener is immediately unbound once it is
      * called.
      * 
      * @param event The type of Event to bind to. This can either be an Event
@@ -252,7 +252,7 @@ export class EventObserver {
     }
 
     /**
-     * Same as {@link on}, but the listener is prepended to the list of bound
+     * Same as EventObserver.prototype.on, but the listener is prepended to the list of bound
      * listeners. When the event is emitted, this listener will have priority
      * in execution order.
      * 
@@ -271,7 +271,7 @@ export class EventObserver {
     }
 
     /**
-     * Same as {@link once}, but the listener is prepended to the list of bound
+     * Same as EventObserver.prototype.once, but the listener is prepended to the list of bound
      * listeners. When the event is emitted, this listener will have priority
      * in execution order.
      * 

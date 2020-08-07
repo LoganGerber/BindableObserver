@@ -4,7 +4,7 @@ exports.EventObserver = exports.RelayFlags = void 0;
 var events_1 = require("events");
 var EmitEvent_1 = require("./EmitEvent");
 /**
- * Flags used to track how two {@link EventObserver}s are bound.
+ * Flags used to track how two EventObservers are bound.
  *
  * - RelayFlags.From sends the bound observer's events to the binding observer.
  * - RelayFlags.To sends the binding observer's events to the bound observer.
@@ -40,7 +40,7 @@ var EventObserver = /** @class */ (function () {
          */
         this.internalEmitter = new events_1.EventEmitter();
         /**
-         * List of {@link EventObserver}s bound to this {@link EventObserver}, as
+         * List of EventObservers bound to this EventObserver, as
          * well as the functions registered to bind the two.
          */
         this.relays = [];
@@ -71,7 +71,7 @@ var EventObserver = /** @class */ (function () {
      * Setting the limit to <= 0 will remove the limit.
      *
      * More info on how ids are stored can be found in
-     * {@link EventObserver.prototype.emit} documentation.
+     * EventObserver.prototype.emit documentation.
      *
      * @param limit The maximum number of ids to keep in cache. Setting to <= 0
      * removes the limit.
@@ -169,7 +169,7 @@ var EventObserver = /** @class */ (function () {
         return this;
     };
     /**
-     * Same as {@link on}, but the listener is immediately unbound once it is
+     * Same as EventObserver.prototype.on, but the listener is immediately unbound once it is
      * called.
      *
      * @param event The type of Event to bind to. This can either be an Event
@@ -185,7 +185,7 @@ var EventObserver = /** @class */ (function () {
         return this;
     };
     /**
-     * Same as {@link on}, but the listener is prepended to the list of bound
+     * Same as EventObserver.prototype.on, but the listener is prepended to the list of bound
      * listeners. When the event is emitted, this listener will have priority
      * in execution order.
      *
@@ -202,7 +202,7 @@ var EventObserver = /** @class */ (function () {
         return this;
     };
     /**
-     * Same as {@link once}, but the listener is prepended to the list of bound
+     * Same as EventObserver.prototype.once, but the listener is prepended to the list of bound
      * listeners. When the event is emitted, this listener will have priority
      * in execution order.
      *
