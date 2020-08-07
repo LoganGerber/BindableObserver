@@ -8,7 +8,7 @@ import { EmitEvent } from "./EmitEvent";
 /**
  * Type representing the structure of a listener callback.
  */
-type Listener = (x: Event) => void;
+type Listener<T extends Event> = (x: T) => void;
 
 /**
  * Valid types for passing to most EventObserver functions that take an
@@ -158,7 +158,7 @@ export class EventObserver {
     /**
      * @alias EventObserver.prototype.on
      */
-    addListener<T extends Event>(event: EventType<T>, listener: Listener): this {
+    addListener<T extends Event>(event: EventType<T>, listener: Listener<T>): this {
         let eventName = EventObserver.getRegisterableEventName(event);
 
         this.internalEmitter.addListener(eventName, listener);
@@ -209,7 +209,7 @@ export class EventObserver {
     /**
      * @alias EventObserver.prototype.removeListener
      */
-    off<T extends Event>(event: EventType<T>, listener: Listener): this {
+    off<T extends Event>(event: EventType<T>, listener: Listener<T>): this {
         return this.removeListener(event, listener);
     }
 
@@ -226,7 +226,7 @@ export class EventObserver {
      * @param listener Callback to execute when the Event type is emitted.
      * @returns Reference to self.
      */
-    on<T extends Event>(event: EventType<T>, listener: Listener): this {
+    on<T extends Event>(event: EventType<T>, listener: Listener<T>): this {
         let eventName = EventObserver.getRegisterableEventName(event);
         this.internalEmitter.on(eventName, listener);
 
@@ -244,7 +244,7 @@ export class EventObserver {
      * @param listener Callback to execute when the Event type is emitted.
      * @returns Reference to self.
      */
-    once<T extends Event>(event: EventType<T>, listener: Listener): this {
+    once<T extends Event>(event: EventType<T>, listener: Listener<T>): this {
         let eventName = EventObserver.getRegisterableEventName(event);
 
         this.internalEmitter.once(eventName, listener);
@@ -263,7 +263,7 @@ export class EventObserver {
      * @param listener Callback to execute when the Event type is emitted.
      * @returns Reference to self.
      */
-    prependListener<T extends Event>(event: EventType<T>, listener: Listener): this {
+    prependListener<T extends Event>(event: EventType<T>, listener: Listener<T>): this {
         let eventName = EventObserver.getRegisterableEventName(event);
 
         this.internalEmitter.prependListener(eventName, listener);
@@ -282,7 +282,7 @@ export class EventObserver {
      * @param listener Callback to execute when the Event type is emitted.
      * @returns Reference to self.
      */
-    prependOnceListener<T extends Event>(event: EventType<T>, listener: Listener): this {
+    prependOnceListener<T extends Event>(event: EventType<T>, listener: Listener<T>): this {
         let eventName = EventObserver.getRegisterableEventName(event);
 
         this.internalEmitter.prependOnceListener(eventName, listener);
@@ -319,7 +319,7 @@ export class EventObserver {
      * @param listener Listener to unbind.
      * @returns Reference to self.
      */
-    removeListener<T extends Event>(event: EventType<T>, listener: Listener): this {
+    removeListener<T extends Event>(event: EventType<T>, listener: Listener<T>): this {
         let eventName = EventObserver.getRegisterableEventName(event);
 
         this.internalEmitter.removeListener(eventName, listener);
@@ -334,7 +334,7 @@ export class EventObserver {
      * @param listener Listener to check for.
      * @returns True if the listener is bound to the event, false otherwise.
      */
-    hasListener<T extends Event>(event: EventType<T>, listener: Listener): boolean {
+    hasListener<T extends Event>(event: EventType<T>, listener: Listener<T>): boolean {
         let eventName = EventObserver.getRegisterableEventName(event);
         return this.internalEmitter.listeners(eventName).includes(listener);
     }

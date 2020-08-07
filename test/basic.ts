@@ -317,7 +317,7 @@ tap.test("emit() emits an EventInvokedEvent for an event", t => {
     let executed = false;
 
     obs.on(EmitEvent, e => {
-        executed = (e as EmitEvent).emitted.id.equals(event.id);
+        executed = e.emitted.id.equals(event.id);
     });
     obs.emit(event);
 
