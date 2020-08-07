@@ -15,6 +15,7 @@ var SimpleObserver = /** @class */ (function () {
         this.internalEmitter = new events_1.EventEmitter();
         this.relays = [];
         this.idCache = [];
+        this.eventInvokedIdCache = [];
         this.idCacheLimit = 100;
     }
     // Manage internal guid cache
@@ -22,12 +23,14 @@ var SimpleObserver = /** @class */ (function () {
         return this.idCacheLimit;
     };
     SimpleObserver.prototype.setIdCacheLimit = function (limit) {
-        this.idCacheLimit = limit;
         if (limit <= 0) {
+            this.idCacheLimit = 0;
             return;
         }
+        this.idCacheLimit = limit;
         var idCacheOverflow = this.idCache.length - limit;
         this.idCache.splice(0, idCacheOverflow);
+        this.eventInvokedIdCache.splice(0, idCacheOverflow);
     };
     SimpleObserver.prototype.getIdCacheSize = function () {
         return this.idCache.length;
@@ -43,23 +46,24 @@ var SimpleObserver = /** @class */ (function () {
     };
     SimpleObserver.prototype.emit = function (event) {
         // Check if the event has been processed already.
-        if (this.idCache.includes(event.id)) {
+        if (this.idCache.includes(event.id) || this.eventInvokedIdCache.includes(event.id)) {
             return false;
         }
         // Remove the oldest id if the cache limit is being exceeded
         if (this.idCacheLimit > 0 && this.idCache.length === this.idCacheLimit) {
             this.idCache.shift();
+            this.eventInvokedIdCache.shift();
         }
         // Add the event id to the id cache
         this.idCache.push(event.id);
         var ret = this.internalEmitter.emit(event.constructor.name, event);
-        ret = this.internalEmitter.emit(EventInvokedEvent_1.EventInvokedEvent.constructor.name, new EventInvokedEvent_1.EventInvokedEvent(event)) || ret;
+        var invokeEvent = new EventInvokedEvent_1.EventInvokedEvent(event);
+        this.eventInvokedIdCache.push(invokeEvent.id);
+        ret = this.internalEmitter.emit(invokeEvent.constructor.name, invokeEvent) || ret;
         return ret;
     };
     SimpleObserver.prototype.off = function (event, listener) {
-        var eventName = this.getRegisterableEventName(event);
-        this.internalEmitter.off(eventName, listener);
-        return this;
+        return this.removeListener(event, listener);
     };
     SimpleObserver.prototype.on = function (event, listener) {
         var eventName = this.getRegisterableEventName(event);
@@ -104,20 +108,46 @@ var SimpleObserver = /** @class */ (function () {
     SimpleObserver.prototype.bind = function (relay, relayFlags) {
         if (relayFlags === void 0) { relayFlags = RelayFlags.All; }
         var found = this.relays.find(function (element) { return element.relay === relay; });
-        if (found) {
-            return false;
+        if (!found) {
+            found = {
+                relay: relay,
+                fromBubbleFunction: undefined,
+                toBubbleFunction: undefined
+            };
+            this.relays.push(found);
         }
-        found = {
-            relay: relay,
-            relayFlags: relayFlags
-        };
         // Binding to a relay means to bind this.emit to an EventInvokedEvent on relay.
-        if (relayFlags & RelayFlags.From && !relay.hasListener(EventInvokedEvent_1.EventInvokedEvent, this.emit)) {
-            relay.on(EventInvokedEvent_1.EventInvokedEvent, this.emit);
+        if (relayFlags & RelayFlags.From) {
+            if (!found.fromBubbleFunction) {
+                var bubble = this.generateBubbleFunction(this);
+                relay.on(EventInvokedEvent_1.EventInvokedEvent, bubble);
+                found.fromBubbleFunction = bubble;
+            }
         }
-        if (relayFlags & RelayFlags.To && !this.hasListener(EventInvokedEvent_1.EventInvokedEvent, relay.emit)) {
-            this.on(EventInvokedEvent_1.EventInvokedEvent, relay.emit);
+        else if (found.fromBubbleFunction) {
+            found.relay.removeListener(EventInvokedEvent_1.EventInvokedEvent, found.fromBubbleFunction);
+            found.fromBubbleFunction = undefined;
         }
+        if (relayFlags & RelayFlags.To) {
+            if (!found.toBubbleFunction) {
+                var bubble = this.generateBubbleFunction(relay);
+                this.on(EventInvokedEvent_1.EventInvokedEvent, bubble);
+                found.toBubbleFunction = bubble;
+            }
+        }
+        else if (found.toBubbleFunction) {
+            this.removeListener(EventInvokedEvent_1.EventInvokedEvent, found.toBubbleFunction);
+            found.toBubbleFunction = undefined;
+        }
+    };
+    SimpleObserver.prototype.checkBinding = function (relay) {
+        var found = this.relays.find(function (e) { return e.relay === relay; });
+        if (!found) {
+            return undefined;
+        }
+        return RelayFlags.None |
+            (found.fromBubbleFunction ? RelayFlags.From : RelayFlags.None) |
+            (found.toBubbleFunction ? RelayFlags.To : RelayFlags.None);
     };
     SimpleObserver.prototype.unbind = function (relay) {
         var foundIndex = this.relays.findIndex(function (element) { return element.relay === relay; });
@@ -126,38 +156,17 @@ var SimpleObserver = /** @class */ (function () {
         }
         var found = this.relays[foundIndex];
         this.relays.splice(foundIndex, 1);
-        if (found.relayFlags & RelayFlags.From) {
-            found.relay.removeListener(EventInvokedEvent_1.EventInvokedEvent, this.emit);
+        if (found.fromBubbleFunction) {
+            found.relay.removeListener(EventInvokedEvent_1.EventInvokedEvent, found.fromBubbleFunction);
         }
-        if (found.relayFlags & RelayFlags.To) {
-            this.removeListener(EventInvokedEvent_1.EventInvokedEvent, found.relay.emit);
+        if (found.toBubbleFunction) {
+            this.removeListener(EventInvokedEvent_1.EventInvokedEvent, found.toBubbleFunction);
         }
     };
-    SimpleObserver.prototype.setRelayFlags = function (relay, flags) {
-        var found = this.relays.find(function (element) { return element.relay === relay; });
-        if (!found) {
-            return;
-        }
-        if (flags & RelayFlags.From) {
-            if (!(found.relayFlags & RelayFlags.From)) {
-                found.relay.on(EventInvokedEvent_1.EventInvokedEvent, this.emit);
-                found.relayFlags = found.relayFlags | RelayFlags.From;
-            }
-        }
-        else if (found.relayFlags & RelayFlags.From) {
-            found.relay.removeListener(EventInvokedEvent_1.EventInvokedEvent, this.emit);
-            found.relayFlags = found.relayFlags & ~RelayFlags.From;
-        }
-        if (flags & RelayFlags.To) {
-            if (!(found.relayFlags & RelayFlags.To)) {
-                this.on(EventInvokedEvent_1.EventInvokedEvent, found.relay.emit);
-                found.relayFlags = found.relayFlags | RelayFlags.To;
-            }
-        }
-        else if (found.relayFlags & RelayFlags.To) {
-            this.removeListener(EventInvokedEvent_1.EventInvokedEvent, found.relay.emit);
-            found.relayFlags = found.relayFlags & ~RelayFlags.To;
-        }
+    SimpleObserver.prototype.generateBubbleFunction = function (observer) {
+        return function (event) {
+            observer.emit(event.data);
+        };
     };
     SimpleObserver.prototype.getRegisterableEventName = function (event) {
         if (typeof event === "function") {

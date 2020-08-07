@@ -4,6 +4,10 @@ export class EventInvokedEvent extends Event {
     data: Event;
 
     constructor(data: Event) {
-        super("Event Invoked", data);
+        super(data);
+    }
+
+    name(): string | symbol {
+        return "Event Invoked";
     }
 }
