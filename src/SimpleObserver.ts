@@ -81,7 +81,7 @@ export class SimpleObserver {
 
         let invokeEvent = new EventInvokedEvent(event);
 
-        ret = this.internalEmitter.emit(invokeEvent.constructor.name, invokeEvent) || ret;
+        this.internalEmitter.emit(invokeEvent.constructor.name, invokeEvent);
 
         return ret;
     }
