@@ -13,16 +13,16 @@ var __extends = (this && this.__extends) || (function () {
     };
 })();
 exports.__esModule = true;
-exports.EventInvokedEvent = void 0;
+exports.EmitEvent = void 0;
 var Event_1 = require("./Event");
-var EventInvokedEvent = /** @class */ (function (_super) {
-    __extends(EventInvokedEvent, _super);
-    function EventInvokedEvent(data) {
+var EmitEvent = /** @class */ (function (_super) {
+    __extends(EmitEvent, _super);
+    function EmitEvent(data) {
         return _super.call(this, data) || this;
     }
-    EventInvokedEvent.prototype.name = function () {
+    EmitEvent.prototype.name = function () {
         return "Event Invoked";
     };
-    return EventInvokedEvent;
+    return EmitEvent;
 }(Event_1.Event));
-exports.EventInvokedEvent = EventInvokedEvent;
+exports.EmitEvent = EmitEvent;

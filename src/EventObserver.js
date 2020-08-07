@@ -2,7 +2,7 @@
 exports.__esModule = true;
 exports.EventObserver = exports.RelayFlags = void 0;
 var events_1 = require("events");
-var EventInvokedEvent_1 = require("./EventInvokedEvent");
+var EmitEvent_1 = require("./EmitEvent");
 /**
  * Flags used to track how two {@link EventObserver}s are bound.
  *
@@ -140,7 +140,7 @@ var EventObserver = /** @class */ (function () {
         // Add the event id to the id cache
         this.idCache.push(event.id);
         var ret = this.internalEmitter.emit(event.constructor.name, event);
-        var invokeEvent = new EventInvokedEvent_1.EventInvokedEvent(event);
+        var invokeEvent = new EmitEvent_1.EmitEvent(event);
         this.internalEmitter.emit(invokeEvent.constructor.name, invokeEvent);
         return ret;
     };
@@ -294,23 +294,23 @@ var EventObserver = /** @class */ (function () {
         if (relayFlags & RelayFlags.From) {
             if (!found.fromBubbleFunction) {
                 var bubble = EventObserver.generateBubbleFunction(this);
-                relay.on(EventInvokedEvent_1.EventInvokedEvent, bubble);
+                relay.on(EmitEvent_1.EmitEvent, bubble);
                 found.fromBubbleFunction = bubble;
             }
         }
         else if (found.fromBubbleFunction) {
-            found.relay.removeListener(EventInvokedEvent_1.EventInvokedEvent, found.fromBubbleFunction);
+            found.relay.removeListener(EmitEvent_1.EmitEvent, found.fromBubbleFunction);
             found.fromBubbleFunction = undefined;
         }
         if (relayFlags & RelayFlags.To) {
             if (!found.toBubbleFunction) {
                 var bubble = EventObserver.generateBubbleFunction(relay);
-                this.on(EventInvokedEvent_1.EventInvokedEvent, bubble);
+                this.on(EmitEvent_1.EmitEvent, bubble);
                 found.toBubbleFunction = bubble;
             }
         }
         else if (found.toBubbleFunction) {
-            this.removeListener(EventInvokedEvent_1.EventInvokedEvent, found.toBubbleFunction);
+            this.removeListener(EmitEvent_1.EmitEvent, found.toBubbleFunction);
             found.toBubbleFunction = undefined;
         }
     };
@@ -347,10 +347,10 @@ var EventObserver = /** @class */ (function () {
         var found = this.relays[foundIndex];
         this.relays.splice(foundIndex, 1);
         if (found.fromBubbleFunction) {
-            found.relay.removeListener(EventInvokedEvent_1.EventInvokedEvent, found.fromBubbleFunction);
+            found.relay.removeListener(EmitEvent_1.EmitEvent, found.fromBubbleFunction);
         }
         if (found.toBubbleFunction) {
-            this.removeListener(EventInvokedEvent_1.EventInvokedEvent, found.toBubbleFunction);
+            this.removeListener(EmitEvent_1.EmitEvent, found.toBubbleFunction);
         }
     };
     /**

@@ -3,7 +3,7 @@ import { EventEmitter } from "events";
 import { Guid } from "guid-typescript";
 
 import { Event } from "./Event";
-import { EventInvokedEvent } from "./EventInvokedEvent";
+import { EmitEvent } from "./EmitEvent";
 
 /**
  * Type representing the structure of a listener callback.
@@ -200,7 +200,7 @@ export class EventObserver {
 
         let ret = this.internalEmitter.emit(event.constructor.name, event);
 
-        let invokeEvent = new EventInvokedEvent(event);
+        let invokeEvent = new EmitEvent(event);
         this.internalEmitter.emit(invokeEvent.constructor.name, invokeEvent);
 
         return ret;
@@ -373,24 +373,24 @@ export class EventObserver {
         if (relayFlags & RelayFlags.From) {
             if (!found.fromBubbleFunction) {
                 let bubble = EventObserver.generateBubbleFunction(this);
-                relay.on(EventInvokedEvent, bubble);
+                relay.on(EmitEvent, bubble);
                 found.fromBubbleFunction = bubble;
             }
         }
         else if (found.fromBubbleFunction) {
-            found.relay.removeListener(EventInvokedEvent, found.fromBubbleFunction);
+            found.relay.removeListener(EmitEvent, found.fromBubbleFunction);
             found.fromBubbleFunction = undefined;
         }
 
         if (relayFlags & RelayFlags.To) {
             if (!found.toBubbleFunction) {
                 let bubble = EventObserver.generateBubbleFunction(relay);
-                this.on(EventInvokedEvent, bubble);
+                this.on(EmitEvent, bubble);
                 found.toBubbleFunction = bubble;
             }
         }
         else if (found.toBubbleFunction) {
-            this.removeListener(EventInvokedEvent, found.toBubbleFunction);
+            this.removeListener(EmitEvent, found.toBubbleFunction);
             found.toBubbleFunction = undefined;
         }
     }
@@ -432,11 +432,11 @@ export class EventObserver {
         this.relays.splice(foundIndex, 1);
 
         if (found.fromBubbleFunction) {
-            found.relay.removeListener(EventInvokedEvent, found.fromBubbleFunction);
+            found.relay.removeListener(EmitEvent, found.fromBubbleFunction);
         }
 
         if (found.toBubbleFunction) {
-            this.removeListener(EventInvokedEvent, found.toBubbleFunction);
+            this.removeListener(EmitEvent, found.toBubbleFunction);
         }
     }
 
@@ -449,8 +449,8 @@ export class EventObserver {
      * @returns A function that is bindable to an event and that will call
      * observer.emit, emitting an EventInvokedEvent provided as a parameter.
      */
-    private static generateBubbleFunction(observer: EventObserver): (event: EventInvokedEvent) => void {
-        return (event: EventInvokedEvent) => {
+    private static generateBubbleFunction(observer: EventObserver): (event: EmitEvent) => void {
+        return (event: EmitEvent) => {
             observer.emit(event.data);
         };
     }

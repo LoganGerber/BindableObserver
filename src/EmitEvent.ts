@@ -1,6 +1,6 @@
 import { Event } from "./Event";
 
-export class EventInvokedEvent extends Event {
+export class EmitEvent extends Event {
     data: Event;
 
     constructor(data: Event) {
