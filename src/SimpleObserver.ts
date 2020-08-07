@@ -5,16 +5,56 @@ import { Guid } from "guid-typescript";
 import { Event } from "./Event";
 import { EventInvokedEvent } from "./EventInvokedEvent";
 
-// TODO: Documentation
-
+/**
+ * Type representing the structure of a listener callback.
+ */
 type Listener = (x: Event) => void;
+
+/**
+ * Valid types for passing to most {@link SimpleObserver} functions that take an
+ * event.
+ * 
+ * The only function that does not use this is
+ * {@link SimpleObserver.prototype.emit}, as it requires specifically an Event.
+ * 
+ * This type allows the user to, for example, call
+ * ```ts
+ *  mySimpleObserver.on(MyEventType, () => {});
+ * ```
+ * or
+ * ```ts
+ * let eventInstance = new MyEventType();
+ * mySimpleObserver.on(eventInstance, () => {});
+ * ```
+ * and both behave identically.
+ */
 type EventType<T extends Event> = Event | (new (...args: any) => T);
+
+/**
+ * Structure for tracking when two {@link SimpleObserver}s are bound together
+ * using {@link SimpleObserver.prototype.bind}.
+ * 
+ * The bubble functions need to be stored so that they can be unbound later on
+ * if the two {@link SimpleObserver}s are unbound from one another.
+ * 
+ * The reason both the "from" bubble function and "to" bubble functions are
+ * tracked is given in the {@link SimpleObserver.prototype.bind} documentation.
+ */
 type RelayEntry = {
     relay: SimpleObserver,
     fromBubbleFunction: (event: Event) => void,
     toBubbleFunction: (event: Event) => void,
 };
 
+
+/**
+ * Flags used to track how two {@link SimpleObserver}s are bound.
+ * 
+ * - RelayFlags.From sends the bound observer's events to the binding observer.
+ * - RelayFlags.To sends the binding observer's events to the bound observer.
+ * - RelayFlags.All sends all events from either observer to the other.
+ * - RelayFlags.None sends no events between the observers.
+ */
 export enum RelayFlags {
     None = 0,
     To = 1 << 0,
@@ -22,18 +62,70 @@ export enum RelayFlags {
     All = ~(~0 << 2)
 }
 
+/**
+ * Implementation of an Observer pattern bindable to other SimpleObservers.
+ * 
+ * SimpleObserver is not an EventEmitter, and cannot be used as an EventEmitter.
+ * This is because anywhere where an EventEmitter would accept a string or
+ * symbol as an event, the SimpleObserver takes an Event object.
+ * 
+ * The SimpleObserver takes Event objects because it needs to track each event's
+ * id. This is so that when two or more SimpleObservers are bound to one
+ * another, an event is not infinitely emitted between the two.
+ * 
+ * Despite the fact that SimpleObserver cannot be used as an EventEmitter, it
+ * shares all the same function names with EventEmitter. This is to make the
+ * functions intuitive for the user.
+ */
 export class SimpleObserver {
+    /**
+     * Underlying EventEmitter used to handle event binding and emit.
+     */
     private internalEmitter: EventEmitter = new EventEmitter();
+
+    /**
+     * List of {@link SimpleObserver}s bound to this {@link SimpleObserver}, as
+     * well as the functions registered to bind the two.
+     */
     private relays: Array<RelayEntry> = [];
+
+    /**
+     * Cache of previously-emitted event ids. If an event is emitted, and its id
+     * is found in here, the emit is canceled without anything happening.
+     */
     private idCache: Guid[] = [];
+
+    /**
+     * Limit of how many entries can exist in the idCache array.
+     */
     private idCacheLimit: number = 100;
 
 
-    // Manage internal guid cache
+    /**
+     * Get the limit of how many entries can exist in the id cache.
+     * 
+     * @returns The maximum number of ids that can exist in cache.
+     */
     getIdCacheLimit(): number {
         return this.idCacheLimit;
     }
 
+    /**
+     * Set the limit of how many entries can exist in the id cache.
+     * 
+     * If the id cache is shrunk to less than the size of the current number of
+     * id entries, the oldest entries will be purged.
+     * 
+     * Setting the limit to <= 0 will remove the limit.
+     * 
+     * More info on how ids are stored can be found in
+     * {@link SimpleObserver.prototype.emit} documentation.
+     * 
+     * @param limit The maximum number of ids to keep in cache. Setting to <= 0
+     * removes the limit.
+     * 
+     * @see SimpleObserver.prototype.on for info about storing ids in cache.
+     */
     setIdCacheLimit(limit: number): void {
         if (limit <= 0) {
             this.idCacheLimit = 0;
@@ -46,15 +138,26 @@ export class SimpleObserver {
         this.idCache.splice(0, idCacheOverflow);
     }
 
+    /**
+     * Get the current number of ids in cache.
+     * 
+     * @returns The number of ids currently stored in cache.
+     */
     getIdCacheSize(): number {
         return this.idCache.length;
     }
 
+    /**
+     * Remove all ids from the id cache
+     */
     clearIdCache(): void {
         this.idCache = [];
     };
 
 
+    /**
+     * @alias SimpleObserver.prototype.on
+     */
     addListener<T extends Event>(event: EventType<T>, listener: Listener): this {
         let eventName = this.getRegisterableEventName(event);
 
@@ -62,6 +165,24 @@ export class SimpleObserver {
         return this;
     }
 
+    /**
+     * Emit an event.
+     * 
+     * When an event is emitted, its id is first compared with the cache of
+     * stored ids. If its id is found in the cache, emit is terminated early,
+     * returning `false`.
+     * 
+     * If the event's id is not found in the cache, the id is stored in the
+     * cache and emit continues to call any listeners bound to the event.
+     * 
+     * When an event is emitted, a second event, an `EventInvokedEvent` is
+     * also emitted, with the original event as its data. This event's id is
+     * not stored in the id cache.
+     * 
+     * @param event Event to emit.
+     * @returns True if any listeners were called for the event, false
+     * otherwise.
+     */
     emit(event: Event): boolean {
         // Check if the event has been processed already.
         if (this.idCache.includes(event.id)) {
@@ -80,16 +201,31 @@ export class SimpleObserver {
         let ret = this.internalEmitter.emit(event.constructor.name, event);
 
         let invokeEvent = new EventInvokedEvent(event);
-
         this.internalEmitter.emit(invokeEvent.constructor.name, invokeEvent);
 
         return ret;
     }
 
+    /**
+     * @alias SimpleObserver.prototype.removeListener
+     */
     off<T extends Event>(event: EventType<T>, listener: Listener): this {
         return this.removeListener(event, listener);
     }
 
+    /**
+     * Bind a listener to an event.
+     * 
+     * A listener is any function callback. Listeners will be called with a
+     * single parameter: the event instance that triggered them.
+     * 
+     * @param event The type of Event to bind to. This can either be an Event
+     * class or an instance of an Event. Note: Binding to an instance of an
+     * event will still allow the listener to be called when ANY instance of
+     * that same event is emitted.
+     * @param listener Callback to execute when the Event type is emitted.
+     * @returns Reference to self.
+     */
     on<T extends Event>(event: EventType<T>, listener: Listener): this {
         let eventName = this.getRegisterableEventName(event);
         this.internalEmitter.on(eventName, listener);
@@ -97,6 +233,17 @@ export class SimpleObserver {
         return this;
     }
 
+    /**
+     * Same as {@link on}, but the listener is immediately unbound once it is
+     * called.
+     * 
+     * @param event The type of Event to bind to. This can either be an Event
+     * class or an instance of an Event. Note: Binding to an instance of an
+     * event will still allow the listener to be called when ANY instance of
+     * that same event is emitted.
+     * @param listener Callback to execute when the Event type is emitted.
+     * @returns Reference to self.
+     */
     once<T extends Event>(event: EventType<T>, listener: Listener): this {
         let eventName = this.getRegisterableEventName(event);
 
@@ -104,6 +251,18 @@ export class SimpleObserver {
         return this;
     }
 
+    /**
+     * Same as {@link on}, but the listener is prepended to the list of bound
+     * listeners. When the event is emitted, this listener will have priority
+     * in execution order.
+     * 
+     * @param event The type of Event to bind to. This can either be an Event
+     * class or an instance of an Event. Note: Binding to an instance of an
+     * event will still allow the listener to be called when ANY instance of
+     * that same event is emitted.
+     * @param listener Callback to execute when the Event type is emitted.
+     * @returns Reference to self.
+     */
     prependListener<T extends Event>(event: EventType<T>, listener: Listener): this {
         let eventName = this.getRegisterableEventName(event);
 
@@ -111,6 +270,18 @@ export class SimpleObserver {
         return this;
     }
 
+    /**
+     * Same as {@link once}, but the listener is prepended to the list of bound
+     * listeners. When the event is emitted, this listener will have priority
+     * in execution order.
+     * 
+     * @param event The type of Event to bind to. This can either be an Event
+     * class or an instance of an Event. Note: Binding to an instance of an
+     * event will still allow the listener to be called when ANY instance of
+     * that same event is emitted.
+     * @param listener Callback to execute when the Event type is emitted.
+     * @returns Reference to self.
+     */
     prependOnceListener<T extends Event>(event: EventType<T>, listener: Listener): this {
         let eventName = this.getRegisterableEventName(event);
 
@@ -118,6 +289,15 @@ export class SimpleObserver {
         return this;
     }
 
+    /**
+     * Remove all listeners bound to a type of event. If event is omitted, all
+     * listeners are removed from every event type.
+     * 
+     * @param event The type of event to unbind from. This can either be an
+     * Event class or an instance of an Event. If this parameter is omitted, all
+     * listeners will be removed from every event.
+     * @returns Reference to self.
+     */
     removeAllListeners<T extends Event>(event?: EventType<T>): this {
         if (event) {
             let eventName = this.getRegisterableEventName(event);
@@ -131,6 +311,14 @@ export class SimpleObserver {
         return this;
     }
 
+    /**
+     * Unbind a listener from an event.
+     * 
+     * @param event Event the listener is bound to. This can either be an Event
+     * class or an instance of an Event.
+     * @param listener Listener to unbind.
+     * @returns Reference to self.
+     */
     removeListener<T extends Event>(event: EventType<T>, listener: Listener): this {
         let eventName = this.getRegisterableEventName(event);
 
@@ -138,13 +326,37 @@ export class SimpleObserver {
         return this;
     }
 
+    /**
+     * Check if a listener is bound to a specific event.
+     * 
+     * @param event Event the listener would be bound to. This can either be an
+     * Event class or an instance of an Event.
+     * @param listener Listener to check for.
+     * @returns True if the listener is bound to the event, false otherwise.
+     */
     hasListener<T extends Event>(event: EventType<T>, listener: Listener): boolean {
         let eventName = this.getRegisterableEventName(event);
         return this.internalEmitter.listeners(eventName).includes(listener);
     }
 
 
-    // ability to attach another SimpleObserver
+    /**
+     * Bind a SimpleObserver to this SimpleObserver.
+     * 
+     * Bound observers emit their events on the other observer as defined by
+     * the RelayFlags supplied.
+     * 
+     * - RelayFlags.None means neither observer sends their events to the other.
+     * - RelayFlags.From means relay emits its events on this observer.
+     * - RelayFlags.To means this observer emits its events on relay.
+     * - RelayFlags.All means both observers emit their events on one another.
+     * 
+     * If no RelayFlags argument is provided, RelayFlags.All is used as default.
+     * 
+     * @param relay SimpleObserver to bind to this observer.
+     * @param relayFlags Direction events should be relayed. Default
+     * RelayFlags.All.
+     */
     bind(relay: SimpleObserver, relayFlags: RelayFlags = RelayFlags.All): void {
         let found = this.relays.find(element => element.relay === relay);
         if (!found) {
@@ -183,6 +395,14 @@ export class SimpleObserver {
         }
     }
 
+    /**
+     * Check how a SimpleObserver is bound to this observer.
+     * 
+     * @param relay SimpleObserver to check.
+     * @returns RelayFlags specifying the direction events are passed between
+     * the two observers. If relay is not bound to this observer, the function
+     * returns `undefined`.
+     */
     checkBinding(relay: SimpleObserver): RelayFlags | undefined {
         let found = this.relays.find(e => e.relay === relay);
         if (!found) {
@@ -194,6 +414,14 @@ export class SimpleObserver {
             (found.toBubbleFunction ? RelayFlags.To : RelayFlags.None);
     }
 
+    /**
+     * Unbind a SimpleObserver from this SimpleObserver.
+     * 
+     * If the provided observer is not bound to this observer, this is a no-op
+     * function.
+     * 
+     * @param relay SimpleObserver to unbind from this.
+     */
     unbind(relay: SimpleObserver): void {
         let foundIndex = this.relays.findIndex(element => element.relay === relay);
         if (foundIndex === -1) {
@@ -213,12 +441,35 @@ export class SimpleObserver {
     }
 
 
+    /**
+     * Create the function that will be used to relay events from one
+     * SimpleObserver to another.
+     * 
+     * @param observer The SimpleObserver whose emit function will be called.
+     * @returns A function that is bindable to an event and that will call
+     * observer.emit, emitting an EventInvokedEvent provided as a parameter.
+     */
     private generateBubbleFunction(observer: SimpleObserver): (event: Event) => void {
         return (event: EventInvokedEvent) => {
             observer.emit(event.data);
         };
     }
 
+    /**
+     * Change an EventType<T> to a string that can be used to register as an
+     * event in the underlying EventEmitter.
+     * 
+     * If the provided event is a function, that means the user passed the class
+     * itself as a parameter. If it's not a function, that means the user passed
+     * an instance of an event.
+     * 
+     * The function returns the class's name, which should be unique to a given
+     * type of Event in any one process. This is how event name collisions are
+     * avoided when binding Events to listeners.
+     * 
+     * @param event Event to get a name from to use as an EventEmitter event.
+     * @returns Name of the event class.
+     */
     private getRegisterableEventName<T extends Event>(event: EventType<T>): string {
         if (typeof event === "function") {
             return event.name;
