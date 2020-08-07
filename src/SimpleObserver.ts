@@ -159,7 +159,7 @@ export class SimpleObserver {
      * @alias SimpleObserver.prototype.on
      */
     addListener<T extends Event>(event: EventType<T>, listener: Listener): this {
-        let eventName = this.getRegisterableEventName(event);
+        let eventName = SimpleObserver.getRegisterableEventName(event);
 
         this.internalEmitter.addListener(eventName, listener);
         return this;
@@ -227,7 +227,7 @@ export class SimpleObserver {
      * @returns Reference to self.
      */
     on<T extends Event>(event: EventType<T>, listener: Listener): this {
-        let eventName = this.getRegisterableEventName(event);
+        let eventName = SimpleObserver.getRegisterableEventName(event);
         this.internalEmitter.on(eventName, listener);
 
         return this;
@@ -245,7 +245,7 @@ export class SimpleObserver {
      * @returns Reference to self.
      */
     once<T extends Event>(event: EventType<T>, listener: Listener): this {
-        let eventName = this.getRegisterableEventName(event);
+        let eventName = SimpleObserver.getRegisterableEventName(event);
 
         this.internalEmitter.once(eventName, listener);
         return this;
@@ -264,7 +264,7 @@ export class SimpleObserver {
      * @returns Reference to self.
      */
     prependListener<T extends Event>(event: EventType<T>, listener: Listener): this {
-        let eventName = this.getRegisterableEventName(event);
+        let eventName = SimpleObserver.getRegisterableEventName(event);
 
         this.internalEmitter.prependListener(eventName, listener);
         return this;
@@ -283,7 +283,7 @@ export class SimpleObserver {
      * @returns Reference to self.
      */
     prependOnceListener<T extends Event>(event: EventType<T>, listener: Listener): this {
-        let eventName = this.getRegisterableEventName(event);
+        let eventName = SimpleObserver.getRegisterableEventName(event);
 
         this.internalEmitter.prependOnceListener(eventName, listener);
         return this;
@@ -300,7 +300,7 @@ export class SimpleObserver {
      */
     removeAllListeners<T extends Event>(event?: EventType<T>): this {
         if (event) {
-            let eventName = this.getRegisterableEventName(event);
+            let eventName = SimpleObserver.getRegisterableEventName(event);
 
             this.internalEmitter.removeAllListeners(eventName);
         }
@@ -320,7 +320,7 @@ export class SimpleObserver {
      * @returns Reference to self.
      */
     removeListener<T extends Event>(event: EventType<T>, listener: Listener): this {
-        let eventName = this.getRegisterableEventName(event);
+        let eventName = SimpleObserver.getRegisterableEventName(event);
 
         this.internalEmitter.removeListener(eventName, listener);
         return this;
@@ -335,7 +335,7 @@ export class SimpleObserver {
      * @returns True if the listener is bound to the event, false otherwise.
      */
     hasListener<T extends Event>(event: EventType<T>, listener: Listener): boolean {
-        let eventName = this.getRegisterableEventName(event);
+        let eventName = SimpleObserver.getRegisterableEventName(event);
         return this.internalEmitter.listeners(eventName).includes(listener);
     }
 
@@ -372,7 +372,7 @@ export class SimpleObserver {
         // Binding to a relay means to bind this.emit to an EventInvokedEvent on relay.
         if (relayFlags & RelayFlags.From) {
             if (!found.fromBubbleFunction) {
-                let bubble = this.generateBubbleFunction(this);
+                let bubble = SimpleObserver.generateBubbleFunction(this);
                 relay.on(EventInvokedEvent, bubble);
                 found.fromBubbleFunction = bubble;
             }
@@ -384,7 +384,7 @@ export class SimpleObserver {
 
         if (relayFlags & RelayFlags.To) {
             if (!found.toBubbleFunction) {
-                let bubble = this.generateBubbleFunction(relay);
+                let bubble = SimpleObserver.generateBubbleFunction(relay);
                 this.on(EventInvokedEvent, bubble);
                 found.toBubbleFunction = bubble;
             }
@@ -449,7 +449,7 @@ export class SimpleObserver {
      * @returns A function that is bindable to an event and that will call
      * observer.emit, emitting an EventInvokedEvent provided as a parameter.
      */
-    private generateBubbleFunction(observer: SimpleObserver): (event: Event) => void {
+    private static generateBubbleFunction(observer: SimpleObserver): (event: EventInvokedEvent) => void {
         return (event: EventInvokedEvent) => {
             observer.emit(event.data);
         };
@@ -470,7 +470,7 @@ export class SimpleObserver {
      * @param event Event to get a name from to use as an EventEmitter event.
      * @returns Name of the event class.
      */
-    private getRegisterableEventName<T extends Event>(event: EventType<T>): string {
+    private static getRegisterableEventName<T extends Event>(event: EventType<T>): string {
         if (typeof event === "function") {
             return event.name;
         }
