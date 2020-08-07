@@ -28,7 +28,7 @@ type Listener<T extends Event> = (x: T) => void;
  * ```
  * and both behave identically.
  */
-type EventType<T extends Event> = Event | (new (...args: any) => T);
+type EventType<T extends Event> = T | (new (...args: any) => T);
 
 /**
  * Structure for tracking when two EventObservers are bound together
