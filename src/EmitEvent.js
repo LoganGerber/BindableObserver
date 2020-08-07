@@ -15,6 +15,9 @@ var __extends = (this && this.__extends) || (function () {
 exports.__esModule = true;
 exports.EmitEvent = void 0;
 var Event_1 = require("./Event");
+/**
+ * Event executed when another event is emitted by an EventObserver.
+ */
 var EmitEvent = /** @class */ (function (_super) {
     __extends(EmitEvent, _super);
     function EmitEvent(data) {

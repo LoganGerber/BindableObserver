@@ -1,5 +1,8 @@
 import { Event } from "./Event";
 
+/**
+ * Event executed when another event is emitted by an EventObserver.
+ */
 export class EmitEvent extends Event {
     data: Event;
 
