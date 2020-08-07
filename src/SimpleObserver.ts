@@ -26,7 +26,6 @@ export class SimpleObserver {
     private internalEmitter: EventEmitter = new EventEmitter();
     private relays: Array<RelayEntry> = [];
     private idCache: Guid[] = [];
-    private eventInvokedIdCache: Guid[] = [];
     private idCacheLimit: number = 100;
 
 
@@ -45,7 +44,6 @@ export class SimpleObserver {
 
         let idCacheOverflow = this.idCache.length - limit;
         this.idCache.splice(0, idCacheOverflow);
-        this.eventInvokedIdCache.splice(0, idCacheOverflow);
     }
 
     getIdCacheSize(): number {
@@ -66,14 +64,13 @@ export class SimpleObserver {
 
     emit(event: Event): boolean {
         // Check if the event has been processed already.
-        if (this.idCache.includes(event.id) || this.eventInvokedIdCache.includes(event.id)) {
+        if (this.idCache.includes(event.id)) {
             return false;
         }
 
         // Remove the oldest id if the cache limit is being exceeded
         if (this.idCacheLimit > 0 && this.idCache.length === this.idCacheLimit) {
             this.idCache.shift();
-            this.eventInvokedIdCache.shift();
         }
 
         // Add the event id to the id cache
@@ -83,7 +80,6 @@ export class SimpleObserver {
         let ret = this.internalEmitter.emit(event.constructor.name, event);
 
         let invokeEvent = new EventInvokedEvent(event);
-        this.eventInvokedIdCache.push(invokeEvent.id);
 
         ret = this.internalEmitter.emit(invokeEvent.constructor.name, invokeEvent) || ret;
 
