@@ -1,7 +1,7 @@
 import * as tap from "tap";
-import { EventObserver, RelayFlags } from "../src/EventObserver";
-import { Event } from "../src/Event";
-import { EmitEvent } from "../src/EmitEvent";
+import { EventObserver, RelayFlags } from "../lib/EventObserver";
+import { Event } from "../lib/Event";
+import { EmitEvent } from "../lib/EmitEvent";
 
 class TestEvent1 extends Event { name() { return "TestEvent1"; } };
 class TestEvent2 extends Event { name() { return "TestEvent2"; } };
@@ -441,7 +441,7 @@ tap.test("checkBinding() returns the binding status of a SimpleObserver to anoth
 tap.test("bind() binds a relay and adds it to the list of bound relays", t => {
     let obs1 = new EventObserver();
     let obs2 = new EventObserver();
-    let bindingStatus: RelayFlags;
+    let bindingStatus: RelayFlags | undefined;
 
     obs1.bind(obs2, RelayFlags.All);
     bindingStatus = obs1.checkBinding(obs2);
