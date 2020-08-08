@@ -1,7 +1,7 @@
 {
     "name": "bindable-observer",
-    "version": "1.0.0",
-    "description": "Simple implementation of an Observer pattern that can be chained to other EventEmitters.",
+    "version": "1.0.2",
+    "description": "Simple implementation of an Observer pattern whose events can be relayed to other BindableObservers.",
     "main": "./lib/BindableObserver.js",
     "scripts": {
         "test": "tap"
