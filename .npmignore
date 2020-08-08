@@ -1,0 +1,7 @@
+.vscode/
+.nyc_output/
+src/
+test/
+.gitignore
+coveragemap.js
+tsconfig.json
