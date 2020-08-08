@@ -1,5 +1,5 @@
 import * as tap from "tap";
-import { EventObserver, RelayFlags } from "../lib/EventObserver";
+import { BindableObserver, RelayFlags } from "../lib/BindableObserver";
 import { Event } from "../lib/Event";
 import { EmitEvent } from "../lib/EmitEvent";
 
@@ -14,7 +14,7 @@ class TestEvent4 extends Event { name() { return "TestEvent4"; } };
 
 // 1: -
 tap.test("setIdCacheLimit() sets the guid cache size", t => {
-    let obs = new EventObserver();
+    let obs = new BindableObserver();
     let event1 = new TestEvent1();
     let event2 = new TestEvent1();
     let event3 = new TestEvent1();
@@ -53,7 +53,7 @@ tap.test("setIdCacheLimit() sets the guid cache size", t => {
 
 // 3: -
 tap.test("addListener() binds a function to an event", t => {
-    let obs = new EventObserver();
+    let obs = new BindableObserver();
     let evoked1Count = 0;
     let evoked2Count = 0;
     let event1 = new TestEvent2();
@@ -73,7 +73,7 @@ tap.test("addListener() binds a function to an event", t => {
 
 // 4: -
 tap.test("on() binds a function to an event", t => {
-    let obs = new EventObserver();
+    let obs = new BindableObserver();
     let evoked1Count = 0;
     let evoked2Count = 0;
     let event1 = new TestEvent2();
@@ -93,7 +93,7 @@ tap.test("on() binds a function to an event", t => {
 
 // 5: -
 tap.test("once() binds a function to an event", t => {
-    let obs = new EventObserver();
+    let obs = new BindableObserver();
     let evoked1Count = 0;
     let evoked2Count = 0;
     let event1 = new TestEvent2();
@@ -113,7 +113,7 @@ tap.test("once() binds a function to an event", t => {
 
 // 2: 4
 tap.test("clearIdCache() clears guid cache", t => {
-    let obs = new EventObserver();
+    let obs = new BindableObserver();
     let event = new TestEvent1();
     let executionCount = 0;
 
@@ -136,7 +136,7 @@ tap.test("clearIdCache() clears guid cache", t => {
 
 // 6: 4
 tap.test("off() unbinds a function from an event", t => {
-    let obs = new EventObserver();
+    let obs = new BindableObserver();
     let evoked1Count = 0;
     let evoked2Count = 0;
     let evoked3Count = 0;
@@ -176,7 +176,7 @@ tap.test("off() unbinds a function from an event", t => {
 
 // 7: 4
 tap.test("removeListener() unbinds a function from an event", t => {
-    let obs = new EventObserver();
+    let obs = new BindableObserver();
     let evoked1Count = 0;
     let evoked2Count = 0;
     let evoked3Count = 0;
@@ -216,7 +216,7 @@ tap.test("removeListener() unbinds a function from an event", t => {
 
 // 8: 4
 tap.test("prependListener() binds a function to an event", t => {
-    let obs = new EventObserver();
+    let obs = new BindableObserver();
     let blocker = false;
     let evoked = false;
     let event = new TestEvent1();
@@ -236,7 +236,7 @@ tap.test("prependListener() binds a function to an event", t => {
 
 // 9: 4
 tap.test("prependOnceListener() binds a function to an event.", t => {
-    let obs = new EventObserver();
+    let obs = new BindableObserver();
     let blocker = false;
     let evoked1Count = 0;
     let evoked2Count = 0;
@@ -263,7 +263,7 @@ tap.test("prependOnceListener() binds a function to an event.", t => {
 
 // 10: 4
 tap.test("removeAllListeners() unbinds all functions from events", t => {
-    let obs = new EventObserver();
+    let obs = new BindableObserver();
     let event11 = new TestEvent1();
     let event12 = new TestEvent1();
     let event21 = new TestEvent2();
@@ -296,7 +296,7 @@ tap.test("removeAllListeners() unbinds all functions from events", t => {
 
 // 11: 4
 tap.test("hasListener() checks if a listener is bound to an event", t => {
-    let obs = new EventObserver();
+    let obs = new BindableObserver();
     let f1 = () => { };
     let f2 = () => { };
     let event = new TestEvent1();
@@ -312,7 +312,7 @@ tap.test("hasListener() checks if a listener is bound to an event", t => {
 
 // 12: 4
 tap.test("emit() emits an EventInvokedEvent for an event", t => {
-    let obs = new EventObserver();
+    let obs = new BindableObserver();
     let event = new TestEvent1();
     let executed = false;
 
@@ -327,7 +327,7 @@ tap.test("emit() emits an EventInvokedEvent for an event", t => {
 
 // 13: 1, 4
 tap.test("cache prevents repeated event handling", t => {
-    let obs = new EventObserver();
+    let obs = new BindableObserver();
     let evokeCount = 0;
     let event1 = new TestEvent1();
     let event2 = new TestEvent1();
@@ -349,7 +349,7 @@ tap.test("cache prevents repeated event handling", t => {
 
 // 14: 1, 4
 tap.test("cache limit removes oldest cached items", t => {
-    let obs = new EventObserver();
+    let obs = new BindableObserver();
     let event1 = new TestEvent1();
     let event2 = new TestEvent1();
     let event3 = new TestEvent1();
@@ -369,8 +369,8 @@ tap.test("cache limit removes oldest cached items", t => {
 
 // 22: 2, 4
 tap.test("checkBinding() returns the binding status of a SimpleObserver to another", t => {
-    let obs1 = new EventObserver();
-    let obs2 = new EventObserver();
+    let obs1 = new BindableObserver();
+    let obs2 = new BindableObserver();
     let event1 = new TestEvent1();
     let event2 = new TestEvent2();
     let evokedFrom = false;
@@ -439,8 +439,8 @@ tap.test("checkBinding() returns the binding status of a SimpleObserver to anoth
 
 // 15: 22
 tap.test("bind() binds a relay and adds it to the list of bound relays", t => {
-    let obs1 = new EventObserver();
-    let obs2 = new EventObserver();
+    let obs1 = new BindableObserver();
+    let obs2 = new BindableObserver();
     let bindingStatus: RelayFlags | undefined;
 
     obs1.bind(obs2, RelayFlags.All);
@@ -452,8 +452,8 @@ tap.test("bind() binds a relay and adds it to the list of bound relays", t => {
 
 // 16: 4, 15
 tap.test("bound observers with RelayFlags.To can forward events", t => {
-    let obs1 = new EventObserver();
-    let obs2 = new EventObserver();
+    let obs1 = new BindableObserver();
+    let obs2 = new BindableObserver();
     let event1 = new TestEvent1();
     let event2 = new TestEvent2();
     let event3 = new TestEvent3();
@@ -488,8 +488,8 @@ tap.test("bound observers with RelayFlags.To can forward events", t => {
 
 // 17: 4, 15
 tap.test("bound observers with RelayFlags.From can receive events", t => {
-    let obs1 = new EventObserver();
-    let obs2 = new EventObserver();
+    let obs1 = new BindableObserver();
+    let obs2 = new BindableObserver();
     let event1 = new TestEvent1();
     let event2 = new TestEvent2();
     let event3 = new TestEvent3();
@@ -524,8 +524,8 @@ tap.test("bound observers with RelayFlags.From can receive events", t => {
 
 // 18: 2, 4, 15
 tap.test("bound observers with RelayFlags.None do not send events", t => {
-    let obs1 = new EventObserver();
-    let obs2 = new EventObserver();
+    let obs1 = new BindableObserver();
+    let obs2 = new BindableObserver();
     let event1 = new TestEvent1();
     let event2 = new TestEvent2();
     let event3 = new TestEvent3();
@@ -583,8 +583,8 @@ tap.test("bound observers with RelayFlags.None do not send events", t => {
 
 // 19: 2, 4, 15
 tap.test("bound observers with RelayFlags.All can forward and receive events", t => {
-    let obs1 = new EventObserver();
-    let obs2 = new EventObserver();
+    let obs1 = new BindableObserver();
+    let obs2 = new BindableObserver();
     let event1 = new TestEvent1();
     let event2 = new TestEvent2();
     let event3 = new TestEvent3();
@@ -642,8 +642,8 @@ tap.test("bound observers with RelayFlags.All can forward and receive events", t
 
 // 20: 2, 4, 15, 16, 17, 18, 19
 tap.test("bind() changes the relay of bound observers", t => {
-    let obs1 = new EventObserver();
-    let obs2 = new EventObserver();
+    let obs1 = new BindableObserver();
+    let obs2 = new BindableObserver();
     let event11 = new TestEvent1();
     let event12 = new TestEvent1();
     let event13 = new TestEvent1();
@@ -768,8 +768,8 @@ tap.test("bind() changes the relay of bound observers", t => {
 
 // 21: 22
 tap.test("bind() default sets RelayFlags to RelayFlags.All", t => {
-    let obs1 = new EventObserver();
-    let obs2 = new EventObserver();
+    let obs1 = new BindableObserver();
+    let obs2 = new BindableObserver();
 
     obs1.bind(obs2);
 
@@ -779,8 +779,8 @@ tap.test("bind() default sets RelayFlags to RelayFlags.All", t => {
 
 // 23: 2, 4, 16, 17, 19, 22
 tap.test("unbind() unbinds observers", t => {
-    let obs1 = new EventObserver();
-    let obs2 = new EventObserver();
+    let obs1 = new BindableObserver();
+    let obs2 = new BindableObserver();
     let event1 = new TestEvent1();
     let event2 = new TestEvent2();
     let evoked1 = false;

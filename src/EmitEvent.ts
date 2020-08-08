@@ -1,7 +1,7 @@
 import { Event } from "./Event";
 
 /**
- * Event executed when another event is emitted by an EventObserver.
+ * Event executed when another event is emitted by an BindableObserver.
  */
 export class EmitEvent extends Event {
     emitted: Event;

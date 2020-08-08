@@ -11,44 +11,44 @@ import { EmitEvent } from "./EmitEvent";
 type Listener<T extends Event> = (x: T) => void;
 
 /**
- * Valid types for passing to most EventObserver functions that take an
+ * Valid types for passing to most BindableObserver functions that take an
  * event.
  * 
- * The only function that does not use this is EventObserver.prototype.emit, as
+ * The only function that does not use this is BindableObserver.prototype.emit, as
  * it requires specifically an Event.
  * 
  * This type allows the user to, for example, call
  * ```ts
- *  myEventObserver.on(MyEventType, () => {});
+ *  myBindableObserver.on(MyEventType, () => {});
  * ```
  * or
  * ```ts
  * let eventInstance = new MyEventType();
- * myEventObserver.on(eventInstance, () => {});
+ * myBindableObserver.on(eventInstance, () => {});
  * ```
  * and both behave identically.
  */
 type EventType<T extends Event> = T | (new (...args: any) => T);
 
 /**
- * Structure for tracking when two EventObservers are bound together
- * using EventObserver.prototype.bind.
+ * Structure for tracking when two BindableObservers are bound together
+ * using BindableObserver.prototype.bind.
  * 
  * The bubble functions need to be stored so that they can be unbound later on
- * if the two EventObservers are unbound from one another.
+ * if the two BindableObservers are unbound from one another.
  * 
  * The reason both the "from" bubble function and "to" bubble functions are
- * tracked is given in the EventObserver.prototype.bind documentation.
+ * tracked is given in the BindableObserver.prototype.bind documentation.
  */
 type RelayEntry = {
-    relay: EventObserver,
+    relay: BindableObserver,
     fromBubbleFunction: ((event: Event) => void) | undefined,
     toBubbleFunction: ((event: Event) => void) | undefined,
 };
 
 
 /**
- * Flags used to track how two EventObservers are bound.
+ * Flags used to track how two BindableObservers are bound.
  * 
  * - RelayFlags.From sends the bound observer's events to the binding observer.
  * - RelayFlags.To sends the binding observer's events to the bound observer.
@@ -63,28 +63,28 @@ export enum RelayFlags {
 }
 
 /**
- * Implementation of an Observer pattern bindable to other EventObservers.
+ * Implementation of an Observer pattern bindable to other BindableObservers.
  * 
- * EventObserver is not an EventEmitter, and cannot be used as an EventEmitter.
+ * BindableObserver is not an EventEmitter, and cannot be used as an EventEmitter.
  * This is because anywhere where an EventEmitter would accept a string or
- * symbol as an event, the EventObserver takes an Event object.
+ * symbol as an event, the BindableObserver takes an Event object.
  * 
- * The EventObserver takes Event objects because it needs to track each event's
- * id. This is so that when two or more EventObservers are bound to one
+ * The BindableObserver takes Event objects because it needs to track each event's
+ * id. This is so that when two or more BindableObservers are bound to one
  * another, an event is not infinitely emitted between the two.
  * 
- * Despite the fact that EventObserver cannot be used as an EventEmitter, it
+ * Despite the fact that BindableObserver cannot be used as an EventEmitter, it
  * shares all the same function names with EventEmitter. This is to make the
  * functions intuitive for the user.
  */
-export class EventObserver {
+export class BindableObserver {
     /**
      * Underlying EventEmitter used to handle event binding and emit.
      */
     private internalEmitter: EventEmitter = new EventEmitter();
 
     /**
-     * List of EventObservers bound to this EventObserver, as
+     * List of BindableObservers bound to this BindableObserver, as
      * well as the functions registered to bind the two.
      */
     private relays: Array<RelayEntry> = [];
@@ -119,12 +119,12 @@ export class EventObserver {
      * Setting the limit to <= 0 will remove the limit.
      * 
      * More info on how ids are stored can be found in
-     * EventObserver.prototype.emit documentation.
+     * BindableObserver.prototype.emit documentation.
      * 
      * @param limit The maximum number of ids to keep in cache. Setting to <= 0
      * removes the limit.
      * 
-     * @see EventObserver.prototype.on for info about storing ids in cache.
+     * @see BindableObserver.prototype.on for info about storing ids in cache.
      */
     setIdCacheLimit(limit: number): void {
         if (limit <= 0) {
@@ -156,10 +156,10 @@ export class EventObserver {
 
 
     /**
-     * @alias EventObserver.prototype.on
+     * @alias BindableObserver.prototype.on
      */
     addListener<T extends Event>(event: EventType<T>, listener: Listener<T>): this {
-        let eventName = EventObserver.getRegisterableEventName(event);
+        let eventName = BindableObserver.getRegisterableEventName(event);
 
         this.internalEmitter.addListener(eventName, listener);
         return this;
@@ -207,7 +207,7 @@ export class EventObserver {
     }
 
     /**
-     * @alias EventObserver.prototype.removeListener
+     * @alias BindableObserver.prototype.removeListener
      */
     off<T extends Event>(event: EventType<T>, listener: Listener<T>): this {
         return this.removeListener(event, listener);
@@ -227,14 +227,14 @@ export class EventObserver {
      * @returns Reference to self.
      */
     on<T extends Event>(event: EventType<T>, listener: Listener<T>): this {
-        let eventName = EventObserver.getRegisterableEventName(event);
+        let eventName = BindableObserver.getRegisterableEventName(event);
         this.internalEmitter.on(eventName, listener);
 
         return this;
     }
 
     /**
-     * Same as EventObserver.prototype.on, but the listener is immediately unbound once it is
+     * Same as BindableObserver.prototype.on, but the listener is immediately unbound once it is
      * called.
      * 
      * @param event The type of Event to bind to. This can either be an Event
@@ -245,14 +245,14 @@ export class EventObserver {
      * @returns Reference to self.
      */
     once<T extends Event>(event: EventType<T>, listener: Listener<T>): this {
-        let eventName = EventObserver.getRegisterableEventName(event);
+        let eventName = BindableObserver.getRegisterableEventName(event);
 
         this.internalEmitter.once(eventName, listener);
         return this;
     }
 
     /**
-     * Same as EventObserver.prototype.on, but the listener is prepended to the list of bound
+     * Same as BindableObserver.prototype.on, but the listener is prepended to the list of bound
      * listeners. When the event is emitted, this listener will have priority
      * in execution order.
      * 
@@ -264,14 +264,14 @@ export class EventObserver {
      * @returns Reference to self.
      */
     prependListener<T extends Event>(event: EventType<T>, listener: Listener<T>): this {
-        let eventName = EventObserver.getRegisterableEventName(event);
+        let eventName = BindableObserver.getRegisterableEventName(event);
 
         this.internalEmitter.prependListener(eventName, listener);
         return this;
     }
 
     /**
-     * Same as EventObserver.prototype.once, but the listener is prepended to the list of bound
+     * Same as BindableObserver.prototype.once, but the listener is prepended to the list of bound
      * listeners. When the event is emitted, this listener will have priority
      * in execution order.
      * 
@@ -283,7 +283,7 @@ export class EventObserver {
      * @returns Reference to self.
      */
     prependOnceListener<T extends Event>(event: EventType<T>, listener: Listener<T>): this {
-        let eventName = EventObserver.getRegisterableEventName(event);
+        let eventName = BindableObserver.getRegisterableEventName(event);
 
         this.internalEmitter.prependOnceListener(eventName, listener);
         return this;
@@ -300,7 +300,7 @@ export class EventObserver {
      */
     removeAllListeners<T extends Event>(event?: EventType<T>): this {
         if (event) {
-            let eventName = EventObserver.getRegisterableEventName(event);
+            let eventName = BindableObserver.getRegisterableEventName(event);
 
             this.internalEmitter.removeAllListeners(eventName);
         }
@@ -320,7 +320,7 @@ export class EventObserver {
      * @returns Reference to self.
      */
     removeListener<T extends Event>(event: EventType<T>, listener: Listener<T>): this {
-        let eventName = EventObserver.getRegisterableEventName(event);
+        let eventName = BindableObserver.getRegisterableEventName(event);
 
         this.internalEmitter.removeListener(eventName, listener);
         return this;
@@ -335,13 +335,13 @@ export class EventObserver {
      * @returns True if the listener is bound to the event, false otherwise.
      */
     hasListener<T extends Event>(event: EventType<T>, listener: Listener<T>): boolean {
-        let eventName = EventObserver.getRegisterableEventName(event);
+        let eventName = BindableObserver.getRegisterableEventName(event);
         return this.internalEmitter.listeners(eventName).includes(listener);
     }
 
 
     /**
-     * Bind a EventObserver to this EventObserver.
+     * Bind a BindableObserver to this BindableObserver.
      * 
      * Bound observers emit their events on the other observer as defined by
      * the RelayFlags supplied.
@@ -353,11 +353,11 @@ export class EventObserver {
      * 
      * If no RelayFlags argument is provided, RelayFlags.All is used as default.
      * 
-     * @param relay EventObserver to bind to this observer.
+     * @param relay BindableObserver to bind to this observer.
      * @param relayFlags Direction events should be relayed. Default
      * RelayFlags.All.
      */
-    bind(relay: EventObserver, relayFlags: RelayFlags = RelayFlags.All): void {
+    bind(relay: BindableObserver, relayFlags: RelayFlags = RelayFlags.All): void {
         let found = this.relays.find(element => element.relay === relay);
         if (!found) {
             found = {
@@ -372,7 +372,7 @@ export class EventObserver {
         // Binding to a relay means to bind this.emit to an EventInvokedEvent on relay.
         if (relayFlags & RelayFlags.From) {
             if (!found.fromBubbleFunction) {
-                let bubble = EventObserver.generateBubbleFunction(this);
+                let bubble = BindableObserver.generateBubbleFunction(this);
                 relay.on(EmitEvent, bubble);
                 found.fromBubbleFunction = bubble;
             }
@@ -384,7 +384,7 @@ export class EventObserver {
 
         if (relayFlags & RelayFlags.To) {
             if (!found.toBubbleFunction) {
-                let bubble = EventObserver.generateBubbleFunction(relay);
+                let bubble = BindableObserver.generateBubbleFunction(relay);
                 this.on(EmitEvent, bubble);
                 found.toBubbleFunction = bubble;
             }
@@ -396,14 +396,14 @@ export class EventObserver {
     }
 
     /**
-     * Check how a EventObserver is bound to this observer.
+     * Check how a BindableObserver is bound to this observer.
      * 
-     * @param relay EventObserver to check.
+     * @param relay BindableObserver to check.
      * @returns RelayFlags specifying the direction events are passed between
      * the two observers. If relay is not bound to this observer, the function
      * returns `undefined`.
      */
-    checkBinding(relay: EventObserver): RelayFlags | undefined {
+    checkBinding(relay: BindableObserver): RelayFlags | undefined {
         let found = this.relays.find(e => e.relay === relay);
         if (!found) {
             return undefined;
@@ -415,14 +415,14 @@ export class EventObserver {
     }
 
     /**
-     * Unbind a EventObserver from this EventObserver.
+     * Unbind a BindableObserver from this BindableObserver.
      * 
      * If the provided observer is not bound to this observer, this is a no-op
      * function.
      * 
-     * @param relay EventObserver to unbind from this.
+     * @param relay BindableObserver to unbind from this.
      */
-    unbind(relay: EventObserver): void {
+    unbind(relay: BindableObserver): void {
         let foundIndex = this.relays.findIndex(element => element.relay === relay);
         if (foundIndex === -1) {
             return;
@@ -443,13 +443,13 @@ export class EventObserver {
 
     /**
      * Create the function that will be used to relay events from one
-     * EventObserver to another.
+     * BindableObserver to another.
      * 
-     * @param observer The EventObserver whose emit function will be called.
+     * @param observer The BindableObserver whose emit function will be called.
      * @returns A function that is bindable to an event and that will call
      * observer.emit, emitting an EventInvokedEvent provided as a parameter.
      */
-    private static generateBubbleFunction(observer: EventObserver): (event: EmitEvent) => void {
+    private static generateBubbleFunction(observer: BindableObserver): (event: EmitEvent) => void {
         return (event: EmitEvent) => {
             observer.emit(event.emitted);
         };

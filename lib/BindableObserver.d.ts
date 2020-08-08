@@ -4,26 +4,26 @@ import { Event } from "./Event";
  */
 declare type Listener<T extends Event> = (x: T) => void;
 /**
- * Valid types for passing to most EventObserver functions that take an
+ * Valid types for passing to most BindableObserver functions that take an
  * event.
  *
- * The only function that does not use this is EventObserver.prototype.emit, as
+ * The only function that does not use this is BindableObserver.prototype.emit, as
  * it requires specifically an Event.
  *
  * This type allows the user to, for example, call
  * ```ts
- *  myEventObserver.on(MyEventType, () => {});
+ *  myBindableObserver.on(MyEventType, () => {});
  * ```
  * or
  * ```ts
  * let eventInstance = new MyEventType();
- * myEventObserver.on(eventInstance, () => {});
+ * myBindableObserver.on(eventInstance, () => {});
  * ```
  * and both behave identically.
  */
 declare type EventType<T extends Event> = T | (new (...args: any) => T);
 /**
- * Flags used to track how two EventObservers are bound.
+ * Flags used to track how two BindableObservers are bound.
  *
  * - RelayFlags.From sends the bound observer's events to the binding observer.
  * - RelayFlags.To sends the binding observer's events to the bound observer.
@@ -37,27 +37,27 @@ export declare enum RelayFlags {
     All = 3
 }
 /**
- * Implementation of an Observer pattern bindable to other EventObservers.
+ * Implementation of an Observer pattern bindable to other BindableObservers.
  *
- * EventObserver is not an EventEmitter, and cannot be used as an EventEmitter.
+ * BindableObserver is not an EventEmitter, and cannot be used as an EventEmitter.
  * This is because anywhere where an EventEmitter would accept a string or
- * symbol as an event, the EventObserver takes an Event object.
+ * symbol as an event, the BindableObserver takes an Event object.
  *
- * The EventObserver takes Event objects because it needs to track each event's
- * id. This is so that when two or more EventObservers are bound to one
+ * The BindableObserver takes Event objects because it needs to track each event's
+ * id. This is so that when two or more BindableObservers are bound to one
  * another, an event is not infinitely emitted between the two.
  *
- * Despite the fact that EventObserver cannot be used as an EventEmitter, it
+ * Despite the fact that BindableObserver cannot be used as an EventEmitter, it
  * shares all the same function names with EventEmitter. This is to make the
  * functions intuitive for the user.
  */
-export declare class EventObserver {
+export declare class BindableObserver {
     /**
      * Underlying EventEmitter used to handle event binding and emit.
      */
     private internalEmitter;
     /**
-     * List of EventObservers bound to this EventObserver, as
+     * List of BindableObservers bound to this BindableObserver, as
      * well as the functions registered to bind the two.
      */
     private relays;
@@ -85,12 +85,12 @@ export declare class EventObserver {
      * Setting the limit to <= 0 will remove the limit.
      *
      * More info on how ids are stored can be found in
-     * EventObserver.prototype.emit documentation.
+     * BindableObserver.prototype.emit documentation.
      *
      * @param limit The maximum number of ids to keep in cache. Setting to <= 0
      * removes the limit.
      *
-     * @see EventObserver.prototype.on for info about storing ids in cache.
+     * @see BindableObserver.prototype.on for info about storing ids in cache.
      */
     setIdCacheLimit(limit: number): void;
     /**
@@ -104,7 +104,7 @@ export declare class EventObserver {
      */
     clearIdCache(): void;
     /**
-     * @alias EventObserver.prototype.on
+     * @alias BindableObserver.prototype.on
      */
     addListener<T extends Event>(event: EventType<T>, listener: Listener<T>): this;
     /**
@@ -127,7 +127,7 @@ export declare class EventObserver {
      */
     emit(event: Event): boolean;
     /**
-     * @alias EventObserver.prototype.removeListener
+     * @alias BindableObserver.prototype.removeListener
      */
     off<T extends Event>(event: EventType<T>, listener: Listener<T>): this;
     /**
@@ -145,7 +145,7 @@ export declare class EventObserver {
      */
     on<T extends Event>(event: EventType<T>, listener: Listener<T>): this;
     /**
-     * Same as EventObserver.prototype.on, but the listener is immediately unbound once it is
+     * Same as BindableObserver.prototype.on, but the listener is immediately unbound once it is
      * called.
      *
      * @param event The type of Event to bind to. This can either be an Event
@@ -157,7 +157,7 @@ export declare class EventObserver {
      */
     once<T extends Event>(event: EventType<T>, listener: Listener<T>): this;
     /**
-     * Same as EventObserver.prototype.on, but the listener is prepended to the list of bound
+     * Same as BindableObserver.prototype.on, but the listener is prepended to the list of bound
      * listeners. When the event is emitted, this listener will have priority
      * in execution order.
      *
@@ -170,7 +170,7 @@ export declare class EventObserver {
      */
     prependListener<T extends Event>(event: EventType<T>, listener: Listener<T>): this;
     /**
-     * Same as EventObserver.prototype.once, but the listener is prepended to the list of bound
+     * Same as BindableObserver.prototype.once, but the listener is prepended to the list of bound
      * listeners. When the event is emitted, this listener will have priority
      * in execution order.
      *
@@ -211,7 +211,7 @@ export declare class EventObserver {
      */
     hasListener<T extends Event>(event: EventType<T>, listener: Listener<T>): boolean;
     /**
-     * Bind a EventObserver to this EventObserver.
+     * Bind a BindableObserver to this BindableObserver.
      *
      * Bound observers emit their events on the other observer as defined by
      * the RelayFlags supplied.
@@ -223,34 +223,34 @@ export declare class EventObserver {
      *
      * If no RelayFlags argument is provided, RelayFlags.All is used as default.
      *
-     * @param relay EventObserver to bind to this observer.
+     * @param relay BindableObserver to bind to this observer.
      * @param relayFlags Direction events should be relayed. Default
      * RelayFlags.All.
      */
-    bind(relay: EventObserver, relayFlags?: RelayFlags): void;
+    bind(relay: BindableObserver, relayFlags?: RelayFlags): void;
     /**
-     * Check how a EventObserver is bound to this observer.
+     * Check how a BindableObserver is bound to this observer.
      *
-     * @param relay EventObserver to check.
+     * @param relay BindableObserver to check.
      * @returns RelayFlags specifying the direction events are passed between
      * the two observers. If relay is not bound to this observer, the function
      * returns `undefined`.
      */
-    checkBinding(relay: EventObserver): RelayFlags | undefined;
+    checkBinding(relay: BindableObserver): RelayFlags | undefined;
     /**
-     * Unbind a EventObserver from this EventObserver.
+     * Unbind a BindableObserver from this BindableObserver.
      *
      * If the provided observer is not bound to this observer, this is a no-op
      * function.
      *
-     * @param relay EventObserver to unbind from this.
+     * @param relay BindableObserver to unbind from this.
      */
-    unbind(relay: EventObserver): void;
+    unbind(relay: BindableObserver): void;
     /**
      * Create the function that will be used to relay events from one
-     * EventObserver to another.
+     * BindableObserver to another.
      *
-     * @param observer The EventObserver whose emit function will be called.
+     * @param observer The BindableObserver whose emit function will be called.
      * @returns A function that is bindable to an event and that will call
      * observer.emit, emitting an EventInvokedEvent provided as a parameter.
      */

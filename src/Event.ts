@@ -1,7 +1,7 @@
 import { Guid } from "guid-typescript";
 
 /**
- * Class that represents an event to be handled by an EventObserver.
+ * Class that represents an event to be handled by an BindableObserver.
  */
 export abstract class Event {
     readonly id: Guid;
