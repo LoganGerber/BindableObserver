@@ -15,5 +15,9 @@
         "@types/node": "^14.0.24",
         "@types/tap": "^14.10.0",
         "tap": "^14.10.8"
+    },
+    "tap": {
+        "color": false,
+        "coverage-map": "./coveragemap.js"
     }
 }
