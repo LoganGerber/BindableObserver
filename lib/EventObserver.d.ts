@@ -1,8 +1,27 @@
-"use strict";
-exports.__esModule = true;
-exports.EventObserver = exports.RelayFlags = void 0;
-var events_1 = require("events");
-var EmitEvent_1 = require("./EmitEvent");
+import { Event } from "./Event";
+/**
+ * Type representing the structure of a listener callback.
+ */
+declare type Listener<T extends Event> = (x: T) => void;
+/**
+ * Valid types for passing to most EventObserver functions that take an
+ * event.
+ *
+ * The only function that does not use this is EventObserver.prototype.emit, as
+ * it requires specifically an Event.
+ *
+ * This type allows the user to, for example, call
+ * ```ts
+ *  myEventObserver.on(MyEventType, () => {});
+ * ```
+ * or
+ * ```ts
+ * let eventInstance = new MyEventType();
+ * myEventObserver.on(eventInstance, () => {});
+ * ```
+ * and both behave identically.
+ */
+declare type EventType<T extends Event> = T | (new (...args: any) => T);
 /**
  * Flags used to track how two EventObservers are bound.
  *
@@ -11,13 +30,12 @@ var EmitEvent_1 = require("./EmitEvent");
  * - RelayFlags.All sends all events from either observer to the other.
  * - RelayFlags.None sends no events between the observers.
  */
-var RelayFlags;
-(function (RelayFlags) {
-    RelayFlags[RelayFlags["None"] = 0] = "None";
-    RelayFlags[RelayFlags["To"] = 1] = "To";
-    RelayFlags[RelayFlags["From"] = 2] = "From";
-    RelayFlags[RelayFlags["All"] = 3] = "All";
-})(RelayFlags = exports.RelayFlags || (exports.RelayFlags = {}));
+export declare enum RelayFlags {
+    None = 0,
+    To = 1,
+    From = 2,
+    All = 3
+}
 /**
  * Implementation of an Observer pattern bindable to other EventObservers.
  *
@@ -33,35 +51,31 @@ var RelayFlags;
  * shares all the same function names with EventEmitter. This is to make the
  * functions intuitive for the user.
  */
-var EventObserver = /** @class */ (function () {
-    function EventObserver() {
-        /**
-         * Underlying EventEmitter used to handle event binding and emit.
-         */
-        this.internalEmitter = new events_1.EventEmitter();
-        /**
-         * List of EventObservers bound to this EventObserver, as
-         * well as the functions registered to bind the two.
-         */
-        this.relays = [];
-        /**
-         * Cache of previously-emitted event ids. If an event is emitted, and its id
-         * is found in here, the emit is canceled without anything happening.
-         */
-        this.idCache = [];
-        /**
-         * Limit of how many entries can exist in the idCache array.
-         */
-        this.idCacheLimit = 100;
-    }
+export declare class EventObserver {
+    /**
+     * Underlying EventEmitter used to handle event binding and emit.
+     */
+    private internalEmitter;
+    /**
+     * List of EventObservers bound to this EventObserver, as
+     * well as the functions registered to bind the two.
+     */
+    private relays;
+    /**
+     * Cache of previously-emitted event ids. If an event is emitted, and its id
+     * is found in here, the emit is canceled without anything happening.
+     */
+    private idCache;
+    /**
+     * Limit of how many entries can exist in the idCache array.
+     */
+    private idCacheLimit;
     /**
      * Get the limit of how many entries can exist in the id cache.
      *
      * @returns The maximum number of ids that can exist in cache.
      */
-    EventObserver.prototype.getIdCacheLimit = function () {
-        return this.idCacheLimit;
-    };
+    getIdCacheLimit(): number;
     /**
      * Set the limit of how many entries can exist in the id cache.
      *
@@ -78,38 +92,21 @@ var EventObserver = /** @class */ (function () {
      *
      * @see EventObserver.prototype.on for info about storing ids in cache.
      */
-    EventObserver.prototype.setIdCacheLimit = function (limit) {
-        if (limit <= 0) {
-            this.idCacheLimit = 0;
-            return;
-        }
-        this.idCacheLimit = limit;
-        var idCacheOverflow = this.idCache.length - limit;
-        this.idCache.splice(0, idCacheOverflow);
-    };
+    setIdCacheLimit(limit: number): void;
     /**
      * Get the current number of ids in cache.
      *
      * @returns The number of ids currently stored in cache.
      */
-    EventObserver.prototype.getIdCacheSize = function () {
-        return this.idCache.length;
-    };
+    getIdCacheSize(): number;
     /**
      * Remove all ids from the id cache
      */
-    EventObserver.prototype.clearIdCache = function () {
-        this.idCache = [];
-    };
-    ;
+    clearIdCache(): void;
     /**
      * @alias EventObserver.prototype.on
      */
-    EventObserver.prototype.addListener = function (event, listener) {
-        var eventName = EventObserver.getRegisterableEventName(event);
-        this.internalEmitter.addListener(eventName, listener);
-        return this;
-    };
+    addListener<T extends Event>(event: EventType<T>, listener: Listener<T>): this;
     /**
      * Emit an event.
      *
@@ -128,28 +125,11 @@ var EventObserver = /** @class */ (function () {
      * @returns True if any listeners were called for the event, false
      * otherwise.
      */
-    EventObserver.prototype.emit = function (event) {
-        // Check if the event has been processed already.
-        if (this.idCache.includes(event.id)) {
-            return false;
-        }
-        // Remove the oldest id if the cache limit is being exceeded
-        if (this.idCacheLimit > 0 && this.idCache.length === this.idCacheLimit) {
-            this.idCache.shift();
-        }
-        // Add the event id to the id cache
-        this.idCache.push(event.id);
-        var ret = this.internalEmitter.emit(event.constructor.name, event);
-        var invokeEvent = new EmitEvent_1.EmitEvent(event);
-        this.internalEmitter.emit(invokeEvent.constructor.name, invokeEvent);
-        return ret;
-    };
+    emit(event: Event): boolean;
     /**
      * @alias EventObserver.prototype.removeListener
      */
-    EventObserver.prototype.off = function (event, listener) {
-        return this.removeListener(event, listener);
-    };
+    off<T extends Event>(event: EventType<T>, listener: Listener<T>): this;
     /**
      * Bind a listener to an event.
      *
@@ -163,11 +143,7 @@ var EventObserver = /** @class */ (function () {
      * @param listener Callback to execute when the Event type is emitted.
      * @returns Reference to self.
      */
-    EventObserver.prototype.on = function (event, listener) {
-        var eventName = EventObserver.getRegisterableEventName(event);
-        this.internalEmitter.on(eventName, listener);
-        return this;
-    };
+    on<T extends Event>(event: EventType<T>, listener: Listener<T>): this;
     /**
      * Same as EventObserver.prototype.on, but the listener is immediately unbound once it is
      * called.
@@ -179,11 +155,7 @@ var EventObserver = /** @class */ (function () {
      * @param listener Callback to execute when the Event type is emitted.
      * @returns Reference to self.
      */
-    EventObserver.prototype.once = function (event, listener) {
-        var eventName = EventObserver.getRegisterableEventName(event);
-        this.internalEmitter.once(eventName, listener);
-        return this;
-    };
+    once<T extends Event>(event: EventType<T>, listener: Listener<T>): this;
     /**
      * Same as EventObserver.prototype.on, but the listener is prepended to the list of bound
      * listeners. When the event is emitted, this listener will have priority
@@ -196,11 +168,7 @@ var EventObserver = /** @class */ (function () {
      * @param listener Callback to execute when the Event type is emitted.
      * @returns Reference to self.
      */
-    EventObserver.prototype.prependListener = function (event, listener) {
-        var eventName = EventObserver.getRegisterableEventName(event);
-        this.internalEmitter.prependListener(eventName, listener);
-        return this;
-    };
+    prependListener<T extends Event>(event: EventType<T>, listener: Listener<T>): this;
     /**
      * Same as EventObserver.prototype.once, but the listener is prepended to the list of bound
      * listeners. When the event is emitted, this listener will have priority
@@ -213,11 +181,7 @@ var EventObserver = /** @class */ (function () {
      * @param listener Callback to execute when the Event type is emitted.
      * @returns Reference to self.
      */
-    EventObserver.prototype.prependOnceListener = function (event, listener) {
-        var eventName = EventObserver.getRegisterableEventName(event);
-        this.internalEmitter.prependOnceListener(eventName, listener);
-        return this;
-    };
+    prependOnceListener<T extends Event>(event: EventType<T>, listener: Listener<T>): this;
     /**
      * Remove all listeners bound to a type of event. If event is omitted, all
      * listeners are removed from every event type.
@@ -227,16 +191,7 @@ var EventObserver = /** @class */ (function () {
      * listeners will be removed from every event.
      * @returns Reference to self.
      */
-    EventObserver.prototype.removeAllListeners = function (event) {
-        if (event) {
-            var eventName = EventObserver.getRegisterableEventName(event);
-            this.internalEmitter.removeAllListeners(eventName);
-        }
-        else {
-            this.internalEmitter.removeAllListeners();
-        }
-        return this;
-    };
+    removeAllListeners<T extends Event>(event?: EventType<T>): this;
     /**
      * Unbind a listener from an event.
      *
@@ -245,11 +200,7 @@ var EventObserver = /** @class */ (function () {
      * @param listener Listener to unbind.
      * @returns Reference to self.
      */
-    EventObserver.prototype.removeListener = function (event, listener) {
-        var eventName = EventObserver.getRegisterableEventName(event);
-        this.internalEmitter.removeListener(eventName, listener);
-        return this;
-    };
+    removeListener<T extends Event>(event: EventType<T>, listener: Listener<T>): this;
     /**
      * Check if a listener is bound to a specific event.
      *
@@ -258,10 +209,7 @@ var EventObserver = /** @class */ (function () {
      * @param listener Listener to check for.
      * @returns True if the listener is bound to the event, false otherwise.
      */
-    EventObserver.prototype.hasListener = function (event, listener) {
-        var eventName = EventObserver.getRegisterableEventName(event);
-        return this.internalEmitter.listeners(eventName).includes(listener);
-    };
+    hasListener<T extends Event>(event: EventType<T>, listener: Listener<T>): boolean;
     /**
      * Bind a EventObserver to this EventObserver.
      *
@@ -279,41 +227,7 @@ var EventObserver = /** @class */ (function () {
      * @param relayFlags Direction events should be relayed. Default
      * RelayFlags.All.
      */
-    EventObserver.prototype.bind = function (relay, relayFlags) {
-        if (relayFlags === void 0) { relayFlags = RelayFlags.All; }
-        var found = this.relays.find(function (element) { return element.relay === relay; });
-        if (!found) {
-            found = {
-                relay: relay,
-                fromBubbleFunction: undefined,
-                toBubbleFunction: undefined
-            };
-            this.relays.push(found);
-        }
-        // Binding to a relay means to bind this.emit to an EventInvokedEvent on relay.
-        if (relayFlags & RelayFlags.From) {
-            if (!found.fromBubbleFunction) {
-                var bubble = EventObserver.generateBubbleFunction(this);
-                relay.on(EmitEvent_1.EmitEvent, bubble);
-                found.fromBubbleFunction = bubble;
-            }
-        }
-        else if (found.fromBubbleFunction) {
-            found.relay.removeListener(EmitEvent_1.EmitEvent, found.fromBubbleFunction);
-            found.fromBubbleFunction = undefined;
-        }
-        if (relayFlags & RelayFlags.To) {
-            if (!found.toBubbleFunction) {
-                var bubble = EventObserver.generateBubbleFunction(relay);
-                this.on(EmitEvent_1.EmitEvent, bubble);
-                found.toBubbleFunction = bubble;
-            }
-        }
-        else if (found.toBubbleFunction) {
-            this.removeListener(EmitEvent_1.EmitEvent, found.toBubbleFunction);
-            found.toBubbleFunction = undefined;
-        }
-    };
+    bind(relay: EventObserver, relayFlags?: RelayFlags): void;
     /**
      * Check how a EventObserver is bound to this observer.
      *
@@ -322,15 +236,7 @@ var EventObserver = /** @class */ (function () {
      * the two observers. If relay is not bound to this observer, the function
      * returns `undefined`.
      */
-    EventObserver.prototype.checkBinding = function (relay) {
-        var found = this.relays.find(function (e) { return e.relay === relay; });
-        if (!found) {
-            return undefined;
-        }
-        return RelayFlags.None |
-            (found.fromBubbleFunction ? RelayFlags.From : RelayFlags.None) |
-            (found.toBubbleFunction ? RelayFlags.To : RelayFlags.None);
-    };
+    checkBinding(relay: EventObserver): RelayFlags | undefined;
     /**
      * Unbind a EventObserver from this EventObserver.
      *
@@ -339,20 +245,7 @@ var EventObserver = /** @class */ (function () {
      *
      * @param relay EventObserver to unbind from this.
      */
-    EventObserver.prototype.unbind = function (relay) {
-        var foundIndex = this.relays.findIndex(function (element) { return element.relay === relay; });
-        if (foundIndex === -1) {
-            return;
-        }
-        var found = this.relays[foundIndex];
-        this.relays.splice(foundIndex, 1);
-        if (found.fromBubbleFunction) {
-            found.relay.removeListener(EmitEvent_1.EmitEvent, found.fromBubbleFunction);
-        }
-        if (found.toBubbleFunction) {
-            this.removeListener(EmitEvent_1.EmitEvent, found.toBubbleFunction);
-        }
-    };
+    unbind(relay: EventObserver): void;
     /**
      * Create the function that will be used to relay events from one
      * EventObserver to another.
@@ -361,11 +254,7 @@ var EventObserver = /** @class */ (function () {
      * @returns A function that is bindable to an event and that will call
      * observer.emit, emitting an EventInvokedEvent provided as a parameter.
      */
-    EventObserver.generateBubbleFunction = function (observer) {
-        return function (event) {
-            observer.emit(event.emitted);
-        };
-    };
+    private static generateBubbleFunction;
     /**
      * Change an EventType<T> to a string that can be used to register as an
      * event in the underlying EventEmitter.
@@ -381,12 +270,6 @@ var EventObserver = /** @class */ (function () {
      * @param event Event to get a name from to use as an EventEmitter event.
      * @returns Name of the event class.
      */
-    EventObserver.getRegisterableEventName = function (event) {
-        if (typeof event === "function") {
-            return event.name;
-        }
-        return event.constructor.name;
-    };
-    return EventObserver;
-}());
-exports.EventObserver = EventObserver;
+    private static getRegisterableEventName;
+}
+export {};
