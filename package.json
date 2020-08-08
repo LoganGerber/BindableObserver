@@ -1,8 +1,8 @@
 {
-    "name": "simpleobserver",
+    "name": "eventobserver",
     "version": "1.0.0",
-    "description": "Simple implementation of an observer pattern that can be chained to other EventEmitters.",
-    "main": "./src/SimpleObserver.js",
+    "description": "Simple implementation of an Observer pattern that can be chained to other EventEmitters.",
+    "main": "./lib/EventObserver.js",
     "scripts": {
         "test": "tap"
     },
@@ -16,6 +16,12 @@
         "@types/tap": "^14.10.0",
         "tap": "^14.10.8"
     },
+    "homepage": "https://github.com/LoganGerber/EventObserver",
+    "repository": {
+        "url": "https://github.com/LoganGerber/EventObserver",
+        "type": "git"
+    },
+    "readme": "README.md",
     "tap": {
         "color": false,
         "coverage-map": "./coveragemap.js"
