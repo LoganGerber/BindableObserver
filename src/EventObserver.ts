@@ -42,8 +42,8 @@ type EventType<T extends Event> = T | (new (...args: any) => T);
  */
 type RelayEntry = {
     relay: EventObserver,
-    fromBubbleFunction: (event: Event) => void,
-    toBubbleFunction: (event: Event) => void,
+    fromBubbleFunction: ((event: Event) => void) | undefined,
+    toBubbleFunction: ((event: Event) => void) | undefined,
 };
 
 
