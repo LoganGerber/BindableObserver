@@ -7,10 +7,12 @@ The EventObserver class is a lot like Node.JS's built-in [EventEmitter](https://
 The reason for this is because where EventEmitters expect strings or symbols as their events, the EventObserver expects an instance of an Event object.
 
 EventObservers expect Event objects because of the way they differ from EventEmitters: They have the ability to relay their Events to other EventObservers! Binding two EventObservers can result in a couple different things, depending on the settings supplied. 
-1) One EventObserver can relay all its emitted events to a different EventObserver (direction specified by user),
-2) Both EventObservers can relay all their emitted to events to one another, or
-3) Neither EventObserver can relay any of their events to one another.
+1. One EventObserver can relay all its emitted events to a different EventObserver (direction specified by user),
+2. Both EventObservers can relay all their emitted to events to one another, or
+3. Neither EventObserver can relay any of their events to one another.
 The last one is pointless, but I included it for completeness sake.
+
+## Questions
 
 ### Why relay Events between observers?
 Going into this project, I had a specific use case in mind. I want the ability to create an event-driven program that can communicate its events to another program (probably via a websocket/named pipe/some other method of communication), but I don't want ALL my events being sent over to the other program.
