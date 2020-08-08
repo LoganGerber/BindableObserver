@@ -1,5 +1,7 @@
 # BindableObserver
 
+    npm i bindable-observer
+
 BindableObserver is an implementation of an [Observer pattern](https://en.wikipedia.org/wiki/Observer_pattern) written for Typescript and Javascript.
 
 The BindableObserver class is a lot like Node.JS's built-in [EventEmitter](https://nodejs.org/api/events.html) class, to the point that it has all the same function names. However, **BindableObserver is not an EventEmitter**. It cannot be used in places expecting an EventEmitter. You cannot swap out your EventEmitter for an BindableObserver. They are not swappable for one another in this way.
