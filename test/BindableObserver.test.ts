@@ -1,7 +1,9 @@
+import { EventEmitter } from "events";
 import * as tap from "tap";
 import { BindableObserver, RelayFlags } from "../lib/BindableObserver";
 import { Event } from "../lib/Event";
 import { EmitEvent } from "../lib/EmitEvent";
+import * as WebSocket from "ws";
 
 class TestEvent1 extends Event { name() { return "TestEvent1"; } };
 class TestEvent2 extends Event { name() { return "TestEvent2"; } };
