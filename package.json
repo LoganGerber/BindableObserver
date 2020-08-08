@@ -21,6 +21,10 @@
         "url": "https://github.com/LoganGerber/BindableObserver",
         "type": "git"
     },
+    "keywords": [
+        "observer",
+        "event"
+    ],
     "readme": "README.md",
     "tap": {
         "color": false,
