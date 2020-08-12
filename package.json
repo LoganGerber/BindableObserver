@@ -1,6 +1,6 @@
 {
     "name": "bindable-observer",
-    "version": "2.0.0",
+    "version": "2.1.0",
     "description": "Simple implementation of an Observer pattern whose events can be relayed to other BindableObservers.",
     "main": "./lib/BindableObserver.js",
     "scripts": {
@@ -15,7 +15,6 @@
     "devDependencies": {
         "@types/node": "14.0.24",
         "@types/tap": "14.10.0",
-        "@types/ws": "^7.2.6",
         "tap": "14.10.8"
     },
     "homepage": "https://github.com/LoganGerber/BindableObserver",

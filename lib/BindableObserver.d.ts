@@ -59,6 +59,31 @@ export declare enum RelayFlags {
  */
 export declare class BindableObserver<E extends EventEmitter> {
     /**
+     * Change an EventType<T> to a string that can be used to register as an
+     * event in the underlying EventEmitter.
+     *
+     * If the provided event is a function, that means the user passed the class
+     * itself as a parameter. If it's not a function, that means the user passed
+     * an instance of an event.
+     *
+     * The function returns the class's name, which should be unique to a given
+     * type of Event in any one process. This is how event name collisions are
+     * avoided when binding Events to listeners.
+     *
+     * @param event Event to get a name from to use as an EventEmitter event.
+     * @returns Name of the event class.
+     */
+    static getRegisterableEventName<T extends Event>(event: EventType<T>): string;
+    /**
+     * Create the function that will be used to relay events from one
+     * BindableObserver to another.
+     *
+     * @param observer The BindableObserver whose emit function will be called.
+     * @returns A function that is bindable to an event and that will call
+     * observer.emit, emitting an EventInvokedEvent provided as a parameter.
+     */
+    private static generateBubbleFunction;
+    /**
      * Underlying EventEmitter used to handle event binding and emit.
      */
     private internalEmitter;
@@ -259,30 +284,5 @@ export declare class BindableObserver<E extends EventEmitter> {
      * @param relay BindableObserver to unbind from this.
      */
     unbind<T extends EventEmitter>(relay: BindableObserver<T>): void;
-    /**
-     * Create the function that will be used to relay events from one
-     * BindableObserver to another.
-     *
-     * @param observer The BindableObserver whose emit function will be called.
-     * @returns A function that is bindable to an event and that will call
-     * observer.emit, emitting an EventInvokedEvent provided as a parameter.
-     */
-    private static generateBubbleFunction;
-    /**
-     * Change an EventType<T> to a string that can be used to register as an
-     * event in the underlying EventEmitter.
-     *
-     * If the provided event is a function, that means the user passed the class
-     * itself as a parameter. If it's not a function, that means the user passed
-     * an instance of an event.
-     *
-     * The function returns the class's name, which should be unique to a given
-     * type of Event in any one process. This is how event name collisions are
-     * avoided when binding Events to listeners.
-     *
-     * @param event Event to get a name from to use as an EventEmitter event.
-     * @returns Name of the event class.
-     */
-    private static getRegisterableEventName;
 }
 export {};

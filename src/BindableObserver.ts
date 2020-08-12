@@ -83,6 +83,44 @@ export enum RelayFlags {
  */
 export class BindableObserver<E extends EventEmitter> {
     /**
+     * Change an EventType<T> to a string that can be used to register as an
+     * event in the underlying EventEmitter.
+     * 
+     * If the provided event is a function, that means the user passed the class
+     * itself as a parameter. If it's not a function, that means the user passed
+     * an instance of an event.
+     * 
+     * The function returns the class's name, which should be unique to a given
+     * type of Event in any one process. This is how event name collisions are
+     * avoided when binding Events to listeners.
+     * 
+     * @param event Event to get a name from to use as an EventEmitter event.
+     * @returns Name of the event class.
+     */
+    static getRegisterableEventName<T extends Event>(event: EventType<T>): string {
+        if (typeof event === "function") {
+            return event.name;
+        }
+
+        return event.constructor.name;
+    }
+
+    /**
+     * Create the function that will be used to relay events from one
+     * BindableObserver to another.
+     * 
+     * @param observer The BindableObserver whose emit function will be called.
+     * @returns A function that is bindable to an event and that will call
+     * observer.emit, emitting an EventInvokedEvent provided as a parameter.
+     */
+    private static generateBubbleFunction<T extends EventEmitter>(observer: BindableObserver<T>): (event: EmitEvent) => void {
+        return (event: EmitEvent) => {
+            observer.emit(event.emitted);
+        };
+    }
+
+
+    /**
      * Underlying EventEmitter used to handle event binding and emit.
      */
     private internalEmitter: E;
@@ -456,43 +494,5 @@ export class BindableObserver<E extends EventEmitter> {
         if (found.toBubbleFunction) {
             this.removeListener(EmitEvent, found.toBubbleFunction);
         }
-    }
-
-
-    /**
-     * Create the function that will be used to relay events from one
-     * BindableObserver to another.
-     * 
-     * @param observer The BindableObserver whose emit function will be called.
-     * @returns A function that is bindable to an event and that will call
-     * observer.emit, emitting an EventInvokedEvent provided as a parameter.
-     */
-    private static generateBubbleFunction<T extends EventEmitter>(observer: BindableObserver<T>): (event: EmitEvent) => void {
-        return (event: EmitEvent) => {
-            observer.emit(event.emitted);
-        };
-    }
-
-    /**
-     * Change an EventType<T> to a string that can be used to register as an
-     * event in the underlying EventEmitter.
-     * 
-     * If the provided event is a function, that means the user passed the class
-     * itself as a parameter. If it's not a function, that means the user passed
-     * an instance of an event.
-     * 
-     * The function returns the class's name, which should be unique to a given
-     * type of Event in any one process. This is how event name collisions are
-     * avoided when binding Events to listeners.
-     * 
-     * @param event Event to get a name from to use as an EventEmitter event.
-     * @returns Name of the event class.
-     */
-    private static getRegisterableEventName<T extends Event>(event: EventType<T>): string {
-        if (typeof event === "function") {
-            return event.name;
-        }
-
-        return event.constructor.name;
     }
 }
