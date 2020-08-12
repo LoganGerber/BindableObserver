@@ -32,9 +32,3 @@ Second, I'm not a fan of how EventEmitters promote using listeners that take a d
 Socket.io has the same issues I mentioned above.
 
 As for any other Observer implementation, I decided to stop searching for other options because, in the end, I felt like this would be a fun project to learn Javascript and Typescript. And it was! It was also a great excuse to finally learn the basics of code testing.
-
-
-## Future plans:
-* Ability to bind asyncronous listeners to events
-* Ability to asyncronously call all listeners when emitting an event.
-* Various code updates as I learn more about Typescript best practices and unit testing best practices.
