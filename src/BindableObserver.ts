@@ -40,8 +40,8 @@ type EventType<T extends Event> = T | (new (...args: any) => T);
  * The reason both the "from" bubble function and "to" bubble functions are
  * tracked is given in the BindableObserver.prototype.bind documentation.
  */
-type RelayEntry = {
-    relay: BindableObserver,
+type RelayEntry<T extends EventEmitter> = {
+    relay: BindableObserver<T>,
     fromBubbleFunction: ((event: Event) => void) | undefined,
     toBubbleFunction: ((event: Event) => void) | undefined,
 };
@@ -65,40 +65,58 @@ export enum RelayFlags {
 /**
  * Implementation of an Observer pattern bindable to other BindableObservers.
  * 
- * BindableObserver is not an EventEmitter, and cannot be used as an EventEmitter.
- * This is because anywhere where an EventEmitter would accept a string or
- * symbol as an event, the BindableObserver takes an Event object.
+ * BindableObserver is not an EventEmitter, and cannot be used as an
+ * EventEmitter. This is because anywhere where an EventEmitter would accept a
+ * string or symbol as an event, the BindableObserver takes an Event object.
  * 
- * The BindableObserver takes Event objects because it needs to track each event's
- * id. This is so that when two or more BindableObservers are bound to one
- * another, an event is not infinitely emitted between the two.
+ * The BindableObserver takes Event objects because it needs to track each
+ * event's id. This is so that when two or more BindableObservers are bound to
+ * one another, an event is not infinitely emitted between the two.
  * 
  * Despite the fact that BindableObserver cannot be used as an EventEmitter, it
  * shares all the same function names with EventEmitter. This is to make the
  * functions intuitive for the user.
+ * 
+ * Underlying, BindableObserver uses a class derived from EventEmitter to emit
+ * events. Specify which EventEmitter type is to be used using the generic
+ * parameter.
  */
-export class BindableObserver {
+export class BindableObserver<E extends EventEmitter> {
     /**
      * Underlying EventEmitter used to handle event binding and emit.
      */
-    private internalEmitter: EventEmitter = new EventEmitter();
+    private internalEmitter: E;
 
     /**
      * List of BindableObservers bound to this BindableObserver, as
      * well as the functions registered to bind the two.
      */
-    private relays: Array<RelayEntry> = [];
+    private relays: Array<RelayEntry<EventEmitter>>;
 
     /**
      * Cache of previously-emitted event ids. If an event is emitted, and its id
      * is found in here, the emit is canceled without anything happening.
      */
-    private idCache: Guid[] = [];
+    private idCache: Guid[];
 
     /**
      * Limit of how many entries can exist in the idCache array.
      */
-    private idCacheLimit: number = 100;
+    private idCacheLimit: number;
+
+
+    /**
+     * Construct a new BindableObserver using the given EventEmitter constructor.
+     * 
+     * The constructor will be used to create the underlying EventEmitter that
+     * will handle emitting events.
+     */
+    constructor(eventEmitterType: new (...args: any[]) => E, ...args: any[]) {
+        this.internalEmitter = new eventEmitterType(...args);
+        this.relays = [];
+        this.idCache = [];
+        this.idCacheLimit = 100;
+    }
 
 
     /**
@@ -357,7 +375,7 @@ export class BindableObserver {
      * @param relayFlags Direction events should be relayed. Default
      * RelayFlags.All.
      */
-    bind(relay: BindableObserver, relayFlags: RelayFlags = RelayFlags.All): void {
+    bind<T extends EventEmitter>(relay: BindableObserver<T>, relayFlags: RelayFlags = RelayFlags.All): void {
         let found = this.relays.find(element => element.relay === relay);
         if (!found) {
             found = {
@@ -403,7 +421,7 @@ export class BindableObserver {
      * the two observers. If relay is not bound to this observer, the function
      * returns `undefined`.
      */
-    checkBinding(relay: BindableObserver): RelayFlags | undefined {
+    checkBinding<T extends EventEmitter>(relay: BindableObserver<T>): RelayFlags | undefined {
         let found = this.relays.find(e => e.relay === relay);
         if (!found) {
             return undefined;
@@ -422,7 +440,7 @@ export class BindableObserver {
      * 
      * @param relay BindableObserver to unbind from this.
      */
-    unbind(relay: BindableObserver): void {
+    unbind<T extends EventEmitter>(relay: BindableObserver<T>): void {
         let foundIndex = this.relays.findIndex(element => element.relay === relay);
         if (foundIndex === -1) {
             return;
@@ -449,7 +467,7 @@ export class BindableObserver {
      * @returns A function that is bindable to an event and that will call
      * observer.emit, emitting an EventInvokedEvent provided as a parameter.
      */
-    private static generateBubbleFunction(observer: BindableObserver): (event: EmitEvent) => void {
+    private static generateBubbleFunction<T extends EventEmitter>(observer: BindableObserver<T>): (event: EmitEvent) => void {
         return (event: EmitEvent) => {
             observer.emit(event.emitted);
         };

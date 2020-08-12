@@ -1,3 +1,5 @@
+/// <reference types="node" />
+import { EventEmitter } from "events";
 import { Event } from "./Event";
 /**
  * Type representing the structure of a listener callback.
@@ -39,19 +41,23 @@ export declare enum RelayFlags {
 /**
  * Implementation of an Observer pattern bindable to other BindableObservers.
  *
- * BindableObserver is not an EventEmitter, and cannot be used as an EventEmitter.
- * This is because anywhere where an EventEmitter would accept a string or
- * symbol as an event, the BindableObserver takes an Event object.
+ * BindableObserver is not an EventEmitter, and cannot be used as an
+ * EventEmitter. This is because anywhere where an EventEmitter would accept a
+ * string or symbol as an event, the BindableObserver takes an Event object.
  *
- * The BindableObserver takes Event objects because it needs to track each event's
- * id. This is so that when two or more BindableObservers are bound to one
- * another, an event is not infinitely emitted between the two.
+ * The BindableObserver takes Event objects because it needs to track each
+ * event's id. This is so that when two or more BindableObservers are bound to
+ * one another, an event is not infinitely emitted between the two.
  *
  * Despite the fact that BindableObserver cannot be used as an EventEmitter, it
  * shares all the same function names with EventEmitter. This is to make the
  * functions intuitive for the user.
+ *
+ * Underlying, BindableObserver uses a class derived from EventEmitter to emit
+ * events. Specify which EventEmitter type is to be used using the generic
+ * parameter.
  */
-export declare class BindableObserver {
+export declare class BindableObserver<E extends EventEmitter> {
     /**
      * Underlying EventEmitter used to handle event binding and emit.
      */
@@ -70,6 +76,13 @@ export declare class BindableObserver {
      * Limit of how many entries can exist in the idCache array.
      */
     private idCacheLimit;
+    /**
+     * Construct a new BindableObserver using the given EventEmitter constructor.
+     *
+     * The constructor will be used to create the underlying EventEmitter that
+     * will handle emitting events.
+     */
+    constructor(eventEmitterType: new (...args: any[]) => E, ...args: any[]);
     /**
      * Get the limit of how many entries can exist in the id cache.
      *
@@ -227,7 +240,7 @@ export declare class BindableObserver {
      * @param relayFlags Direction events should be relayed. Default
      * RelayFlags.All.
      */
-    bind(relay: BindableObserver, relayFlags?: RelayFlags): void;
+    bind<T extends EventEmitter>(relay: BindableObserver<T>, relayFlags?: RelayFlags): void;
     /**
      * Check how a BindableObserver is bound to this observer.
      *
@@ -236,7 +249,7 @@ export declare class BindableObserver {
      * the two observers. If relay is not bound to this observer, the function
      * returns `undefined`.
      */
-    checkBinding(relay: BindableObserver): RelayFlags | undefined;
+    checkBinding<T extends EventEmitter>(relay: BindableObserver<T>): RelayFlags | undefined;
     /**
      * Unbind a BindableObserver from this BindableObserver.
      *
@@ -245,7 +258,7 @@ export declare class BindableObserver {
      *
      * @param relay BindableObserver to unbind from this.
      */
-    unbind(relay: BindableObserver): void;
+    unbind<T extends EventEmitter>(relay: BindableObserver<T>): void;
     /**
      * Create the function that will be used to relay events from one
      * BindableObserver to another.
