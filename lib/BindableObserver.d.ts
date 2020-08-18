@@ -1,6 +1,8 @@
 /// <reference types="node" />
 import { EventEmitter } from "events";
 import { Event } from "./Event";
+export { Event } from "./Event";
+export { EmitEvent } from "./EmitEvent";
 /**
  * Type representing the structure of a listener callback.
  */
@@ -285,4 +287,3 @@ export declare class BindableObserver<E extends EventEmitter> {
      */
     unbind<T extends EventEmitter>(relay: BindableObserver<T>): void;
 }
-export {};

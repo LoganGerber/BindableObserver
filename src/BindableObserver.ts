@@ -5,6 +5,11 @@ import { Guid } from "guid-typescript";
 import { Event } from "./Event";
 import { EmitEvent } from "./EmitEvent";
 
+// Re-export other classes
+export { Event } from "./Event";
+export { EmitEvent } from "./EmitEvent";
+
+
 /**
  * Type representing the structure of a listener callback.
  */
