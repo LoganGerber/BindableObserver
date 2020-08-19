@@ -116,6 +116,20 @@ export declare class BindableObserver<E extends EventEmitter> {
      * The constructor will be used to create or set the underlying EventEmitter
      * that will handle emitting events.
      *
+     * If constructing a BindableObserver with an instance of an EventEmitter,
+     * any preexisting bindings (or bindings made to the instance after
+     * constructing the BindableObserver) will not be altared. The EventEmitter
+     * instance will still behave normally.
+     *
+     * When calling events via the EventEmitter, no events bound via the
+     * BindableObserver will be executed. Likewise, when calling events bound
+     * via the BindableObserver, no events bound to the EventEmitter will be
+     * executed.
+     *
+     * NOTE: While calling events from one does not interfere with the other,
+     * binding an Event class to a listener via BindableObserver will still
+     * invoke a 'newListener' event in the EventEmitter.
+     *
      * @param eventEmitter The type or instance of EventEmitter to use
      * underlying the BindableObserver.
      */
