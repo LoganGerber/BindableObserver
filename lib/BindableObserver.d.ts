@@ -86,10 +86,6 @@ export declare class BindableObserver<E extends EventEmitter> {
      */
     private static generateBubbleFunction;
     /**
-     * Underlying EventEmitter used to handle event binding and emit.
-     */
-    private internalEmitter;
-    /**
      * List of BindableObservers bound to this BindableObserver, as
      * well as the functions registered to bind the two.
      */
@@ -103,6 +99,10 @@ export declare class BindableObserver<E extends EventEmitter> {
      * Limit of how many entries can exist in the idCache array.
      */
     private idCacheLimit;
+    /**
+     * Underlying EventEmitter used to handle event binding and emit.
+     */
+    protected internalEmitter: E;
     /**
      * Construct a new BindableObserver using the given EventEmitter constructor.
      *

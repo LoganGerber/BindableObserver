@@ -126,11 +126,6 @@ export class BindableObserver<E extends EventEmitter> {
 
 
     /**
-     * Underlying EventEmitter used to handle event binding and emit.
-     */
-    private internalEmitter: E;
-
-    /**
      * List of BindableObservers bound to this BindableObserver, as
      * well as the functions registered to bind the two.
      */
@@ -146,6 +141,12 @@ export class BindableObserver<E extends EventEmitter> {
      * Limit of how many entries can exist in the idCache array.
      */
     private idCacheLimit: number;
+
+
+    /**
+     * Underlying EventEmitter used to handle event binding and emit.
+     */
+    protected internalEmitter: E;
 
 
     /**
