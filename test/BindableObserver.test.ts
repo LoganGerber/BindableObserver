@@ -30,6 +30,27 @@ tap.test("constructing with different underlying emitters works", t => {
     t.end();
 });
 
+tap.test("constructing with a premade EventEmitter works", t => {
+    let premade = new EventEmitter();
+    let obs = new BindableObserver(premade);
+    let event = new TestEvent1();
+    let hit1 = false;
+    let hit2 = false;
+    let hit3 = false;
+
+    premade.on("TestEvent2", () => hit1 = true);
+    premade.on("TestEvent3", () => hit3 = true);
+    obs.on(event, () => hit2 = true);
+    obs.emit(event);
+    obs.emit(new TestEvent3());
+    premade.emit("TestEvent2");
+
+    t.equal(hit1, true, "Old event bindings still work when an EventEmitter is applied to a BindableObserver");
+    t.equal(hit2, true, "Able to bind a new event to an observer with a premade EventEmitter");
+    t.equal(hit3, false, "Event bound to EventEmitter is not affected when emitting from BindableObserver");
+    t.end();
+});
+
 // 1: -
 tap.test("setIdCacheLimit() sets the guid cache size", t => {
     let obs = new BindableObserver(EventEmitter);
@@ -329,7 +350,7 @@ tap.test("hasListener() checks if a listener is bound to an event", t => {
 });
 
 // 12: 4
-tap.test("emit() emits an EventInvokedEvent for an event", t => {
+tap.test("emit() emits an EmitEvent for an event", t => {
     let obs = new BindableObserver(EventEmitter);
     let event = new TestEvent1();
     let executed = false;
@@ -339,7 +360,7 @@ tap.test("emit() emits an EventInvokedEvent for an event", t => {
     });
     obs.emit(event);
 
-    t.equal(executed, true, "EventInvokedEvent sent after emit");
+    t.equal(executed, true, "EmitEvent sent after emit");
     t.end();
 });
 

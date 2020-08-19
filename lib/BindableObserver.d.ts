@@ -100,16 +100,26 @@ export declare class BindableObserver<E extends EventEmitter> {
      */
     private idCacheLimit;
     /**
+     * Map that relates each Event type with its own symbol internal to the
+     * BindableObserver. These symbols are what are bound to the
+     * internalEmitter.
+     */
+    private symbolMap;
+    /**
      * Underlying EventEmitter used to handle event binding and emit.
      */
     protected internalEmitter: E;
     /**
-     * Construct a new BindableObserver using the given EventEmitter constructor.
+     * Construct a new BindableObserver using the given EventEmitter constructor
+     * or EventEmitter subclass instance.
      *
-     * The constructor will be used to create the underlying EventEmitter that
-     * will handle emitting events.
+     * The constructor will be used to create or set the underlying EventEmitter
+     * that will handle emitting events.
+     *
+     * @param eventEmitter The type or instance of EventEmitter to use
+     * underlying the BindableObserver.
      */
-    constructor(eventEmitterType: new (...args: any[]) => E, ...args: any[]);
+    constructor(eventEmitter: (new (...args: any[]) => E) | E, ...args: any[]);
     /**
      * Get the limit of how many entries can exist in the id cache.
      *
@@ -286,4 +296,13 @@ export declare class BindableObserver<E extends EventEmitter> {
      * @param relay BindableObserver to unbind from this.
      */
     unbind<T extends EventEmitter>(relay: BindableObserver<T>): void;
+    /**
+     * Get or create a symbol corresponding to the given event.
+     *
+     * This symbol is used for binding or calling the internalEmitter.
+     *
+     * @param event Event type or instance to get a symbol for.
+     * @returns A symbol representing the type of event given.
+     */
+    private getEventSymbol;
 }
