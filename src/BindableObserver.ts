@@ -4,10 +4,12 @@ import { Guid } from "guid-typescript";
 
 import { Event } from "./Event";
 import { EmitEvent } from "./EmitEvent";
+import { UndefinedInternalEmitterError } from "./UndefinedInternalEmitterError";
 
 // Re-export other classes
-export { Event } from "./Event";
-export { EmitEvent } from "./EmitEvent";
+export { Event };
+export { EmitEvent };
+export { UndefinedInternalEmitterError };
 
 
 /**
@@ -19,8 +21,8 @@ type Listener<T extends Event> = (x: T) => void;
  * Valid types for passing to most BindableObserver functions that take an
  * event.
  * 
- * The only function that does not use this is BindableObserver.prototype.emit, as
- * it requires specifically an Event.
+ * The only function that does not use this is BindableObserver.prototype.emit,
+ * as it requires specifically an Event.
  * 
  * This type allows the user to, for example, call
  * ```ts
@@ -153,7 +155,7 @@ export class BindableObserver<E extends EventEmitter> {
     /**
      * Underlying EventEmitter used to handle event binding and emit.
      */
-    protected internalEmitter: E;
+    protected internalEmitter: E | undefined;
 
 
     /**
@@ -162,6 +164,11 @@ export class BindableObserver<E extends EventEmitter> {
      * 
      * The constructor will be used to create or set the underlying EventEmitter
      * that will handle emitting events.
+     * 
+     * If no constructor or instance is given, a BindableObserver will still be
+     * constructed. However, any functions involving events will result in
+     * errors being thrown, until an internal emitter is provided using the
+     * setInternalEmitter() function.
      * 
      * If constructing a BindableObserver with an instance of an EventEmitter,
      * any preexisting bindings (or bindings made to the instance after
@@ -180,17 +187,14 @@ export class BindableObserver<E extends EventEmitter> {
      * @param eventEmitter The type or instance of EventEmitter to use
      * underlying the BindableObserver.
      */
-    constructor(eventEmitter: (new (...args: any[]) => E) | E, ...args: any[]) {
+    constructor(eventEmitter?: (new (...args: any[]) => E) | E, ...args: any[]) {
         this.relays = [];
         this.idCache = [];
         this.idCacheLimit = 100;
         this.symbolMap = new Map<new <T extends Event>(...args: any[]) => T, symbol>();
 
-        if (typeof eventEmitter === "function") {
-            this.internalEmitter = new eventEmitter(...args);
-        }
-        else {
-            this.internalEmitter = eventEmitter;
+        if (eventEmitter) {
+            this.setInternalEmitter(eventEmitter, ...args);
         }
     }
 
@@ -250,13 +254,36 @@ export class BindableObserver<E extends EventEmitter> {
 
 
     /**
+     * Get the current internal EventEmitter.
+     * 
+     * @returns The EventEmitter object used internally for handling events, or
+     * `undefined` if there is no currently set internal emitter.
+     */
+    getInternalEmitter(): E | undefined {
+        return this.internalEmitter;
+    }
+
+    /**
+     * Set or changethe internal EventEmitter.
+     * 
+     * @see myBindableObserver.prototype.constructor for notes on how the
+     * eventEmitter parameter is used.
+     */
+    setInternalEmitter(eventEmitter: (new (...args: any[]) => E) | E, ...args: any[]): void {
+        if (typeof eventEmitter === "function") {
+            this.internalEmitter = new eventEmitter(...args);
+        }
+        else {
+            this.internalEmitter = eventEmitter;
+        }
+    }
+
+
+    /**
      * @alias BindableObserver.prototype.on
      */
     addListener<T extends Event>(event: EventType<T>, listener: Listener<T>): this {
-        let eventName = this.getEventSymbol(event);
-
-        this.internalEmitter.addListener(eventName, listener);
-        return this;
+        return this.on(event, listener);
     }
 
     /**
@@ -278,6 +305,10 @@ export class BindableObserver<E extends EventEmitter> {
      * otherwise.
      */
     emit(event: Event): boolean {
+        if (this.internalEmitter === undefined) {
+            throw new UndefinedInternalEmitterError();
+        }
+
         // Check if the event has been processed already.
         if (this.idCache.includes(event.id)) {
             return false;
@@ -321,6 +352,10 @@ export class BindableObserver<E extends EventEmitter> {
      * @returns Reference to self.
      */
     on<T extends Event>(event: EventType<T>, listener: Listener<T>): this {
+        if (this.internalEmitter === undefined) {
+            throw new UndefinedInternalEmitterError();
+        }
+
         let eventName = this.getEventSymbol(event);
         this.internalEmitter.on(eventName, listener);
 
@@ -328,8 +363,8 @@ export class BindableObserver<E extends EventEmitter> {
     }
 
     /**
-     * Same as BindableObserver.prototype.on, but the listener is immediately unbound once it is
-     * called.
+     * Same as BindableObserver.prototype.on, but the listener is immediately
+     * unbound once it is called.
      * 
      * @param event The type of Event to bind to. This can either be an Event
      * class or an instance of an Event. Note: Binding to an instance of an
@@ -339,6 +374,10 @@ export class BindableObserver<E extends EventEmitter> {
      * @returns Reference to self.
      */
     once<T extends Event>(event: EventType<T>, listener: Listener<T>): this {
+        if (this.internalEmitter === undefined) {
+            throw new UndefinedInternalEmitterError();
+        }
+
         let eventName = this.getEventSymbol(event);
 
         this.internalEmitter.once(eventName, listener);
@@ -346,9 +385,9 @@ export class BindableObserver<E extends EventEmitter> {
     }
 
     /**
-     * Same as BindableObserver.prototype.on, but the listener is prepended to the list of bound
-     * listeners. When the event is emitted, this listener will have priority
-     * in execution order.
+     * Same as BindableObserver.prototype.on, but the listener is prepended to
+     * the list of bound listeners. When the event is emitted, this listener
+     * will have priority in execution order.
      * 
      * @param event The type of Event to bind to. This can either be an Event
      * class or an instance of an Event. Note: Binding to an instance of an
@@ -358,6 +397,10 @@ export class BindableObserver<E extends EventEmitter> {
      * @returns Reference to self.
      */
     prependListener<T extends Event>(event: EventType<T>, listener: Listener<T>): this {
+        if (this.internalEmitter === undefined) {
+            throw new UndefinedInternalEmitterError();
+        }
+
         let eventName = this.getEventSymbol(event);
 
         this.internalEmitter.prependListener(eventName, listener);
@@ -365,9 +408,9 @@ export class BindableObserver<E extends EventEmitter> {
     }
 
     /**
-     * Same as BindableObserver.prototype.once, but the listener is prepended to the list of bound
-     * listeners. When the event is emitted, this listener will have priority
-     * in execution order.
+     * Same as BindableObserver.prototype.once, but the listener is prepended to
+     * the list of bound listeners. When the event is emitted, this listener
+     * will have priority in execution order.
      * 
      * @param event The type of Event to bind to. This can either be an Event
      * class or an instance of an Event. Note: Binding to an instance of an
@@ -377,6 +420,10 @@ export class BindableObserver<E extends EventEmitter> {
      * @returns Reference to self.
      */
     prependOnceListener<T extends Event>(event: EventType<T>, listener: Listener<T>): this {
+        if (this.internalEmitter === undefined) {
+            throw new UndefinedInternalEmitterError();
+        }
+
         let eventName = this.getEventSymbol(event);
 
         this.internalEmitter.prependOnceListener(eventName, listener);
@@ -393,6 +440,10 @@ export class BindableObserver<E extends EventEmitter> {
      * @returns Reference to self.
      */
     removeAllListeners<T extends Event>(event?: EventType<T>): this {
+        if (this.internalEmitter === undefined) {
+            throw new UndefinedInternalEmitterError();
+        }
+
         if (event) {
             let eventName = this.getEventSymbol(event);
 
@@ -414,6 +465,10 @@ export class BindableObserver<E extends EventEmitter> {
      * @returns Reference to self.
      */
     removeListener<T extends Event>(event: EventType<T>, listener: Listener<T>): this {
+        if (this.internalEmitter === undefined) {
+            throw new UndefinedInternalEmitterError();
+        }
+
         let eventName = this.getEventSymbol(event);
 
         this.internalEmitter.removeListener(eventName, listener);
@@ -429,6 +484,10 @@ export class BindableObserver<E extends EventEmitter> {
      * @returns True if the listener is bound to the event, false otherwise.
      */
     hasListener<T extends Event>(event: EventType<T>, listener: Listener<T>): boolean {
+        if (this.internalEmitter === undefined) {
+            throw new UndefinedInternalEmitterError();
+        }
+
         let eventName = this.getEventSymbol(event);
         return this.internalEmitter.listeners(eventName).includes(listener);
     }

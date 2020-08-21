@@ -2,9 +2,7 @@ import { EventEmitter } from "events";
 
 import * as tap from "tap";
 
-import { BindableObserver, RelayFlags } from "../lib/BindableObserver";
-import { Event } from "../lib/Event";
-import { EmitEvent } from "../lib/EmitEvent";
+import { BindableObserver, RelayFlags, Event, EmitEvent, UndefinedInternalEmitterError } from "../lib/BindableObserver";
 
 class TestEvent1 extends Event { name() { return "TestEvent1"; } };
 class TestEvent2 extends Event { name() { return "TestEvent2"; } };
@@ -48,6 +46,46 @@ tap.test("constructing with a premade EventEmitter works", t => {
     t.equal(hit1, true, "Old event bindings still work when an EventEmitter is applied to a BindableObserver");
     t.equal(hit2, true, "Able to bind a new event to an observer with a premade EventEmitter");
     t.equal(hit3, false, "Event bound to EventEmitter is not affected when emitting from BindableObserver");
+    t.end();
+});
+
+tap.test("constructing with no eventEmitter parameter works", t => {
+    let obs = new BindableObserver();
+    let emitter1 = new EventEmitter();
+    let emitter2 = new EventEmitter();
+    let event = new TestEvent1();
+    let errorInstance = new UndefinedInternalEmitterError();
+
+    t.throws(() => obs.addListener(event, () => { }), errorInstance, "addListener() throws for incomplete BindableObserver");
+    t.throws(() => obs.emit(event), errorInstance, "emit() throws for incomplete BindableObserver");
+    t.throws(() => obs.off(event, () => { }), errorInstance, "off() throws for incomplete BindableObserver");
+    t.throws(() => obs.on(event, () => { }), errorInstance, "on() throws for incomplete BindableObserver");
+    t.throws(() => obs.once(event, () => { }), errorInstance, "once() throws for incomplete BindableObserver");
+    t.throws(() => obs.prependListener(event, () => { }), errorInstance, "prependListener() throws for incomplete BindableObserver");
+    t.throws(() => obs.prependOnceListener(event, () => { }), errorInstance, "prependOnceListener() throws for incomplete BindableObserver");
+    t.throws(() => obs.removeAllListeners(), errorInstance, "removeAllListeners() throws for incomplete BindableObserver");
+    t.throws(() => obs.removeListener(event, () => { }), errorInstance, "removeListener() throws for incomplete BindableObserver");
+    t.throws(() => obs.hasListener(event, () => { }), errorInstance, "hasListener() throws for incomplete BindableObserver");
+
+    obs.setInternalEmitter(emitter1);
+
+    t.equal(obs.getInternalEmitter() === emitter1, true, "Internal emitter equals what it was set to");
+    t.doesNotThrow(() => obs.addListener(event, () => { }), "addListener() throws for incomplete BindableObserver");
+    t.doesNotThrow(() => obs.emit(event), "emit() throws for incomplete BindableObserver");
+    t.doesNotThrow(() => obs.off(event, () => { }), "off() throws for incomplete BindableObserver");
+    t.doesNotThrow(() => obs.on(event, () => { }), "on() throws for incomplete BindableObserver");
+    t.doesNotThrow(() => obs.once(event, () => { }), "once() throws for incomplete BindableObserver");
+    t.doesNotThrow(() => obs.prependListener(event, () => { }), "prependListener() throws for incomplete BindableObserver");
+    t.doesNotThrow(() => obs.prependOnceListener(event, () => { }), "prependOnceListener() throws for incomplete BindableObserver");
+    t.doesNotThrow(() => obs.removeAllListeners(), "removeAllListeners() throws for incomplete BindableObserver");
+    t.doesNotThrow(() => obs.removeListener(event, () => { }), "removeListener() throws for incomplete BindableObserver");
+    t.doesNotThrow(() => obs.hasListener(event, () => { }), "hasListener() throws for incomplete BindableObserver");
+
+    obs.setInternalEmitter(emitter2);
+
+    t.equal(obs.getInternalEmitter() === emitter1, false, "Internal emitter no longer equals the old emitter");
+    t.equal(obs.getInternalEmitter() === emitter2, true, "Internal emitter now equals the new emitter.");
+
     t.end();
 });
 
