@@ -2,7 +2,7 @@ import { EventEmitter } from "events";
 
 import * as tap from "tap";
 
-import { BindableObserver, RelayFlags, Event, EmitEvent, UndefinedInternalEmitterError } from "../lib/BindableObserver";
+import { BindableObserver, Event, EmitEvent, UndefinedEmitterError, CacheLimitChangedEvent, EmitterChangedEvent, ListenerBoundEvent, ListenerRemovedEvent, ObserverBoundEvent, ObserverUnboundEvent } from "../lib/BindableObserver";
 
 class TestEvent1 extends Event { name() { return "TestEvent1"; } };
 class TestEvent2 extends Event { name() { return "TestEvent2"; } };
@@ -17,9 +17,8 @@ class TestEmitter extends EventEmitter {
 }
 
 // NOTE: There is no test for checking if emit() correctly emits an Event.
-// NOTE: There is no test for checking if getIdCacheSize() gets the correct length of cache.
-// NOTE: There is no test for checking if getIdCacheLimit() gets the correct limit of cache size.
 
+// BindableObserver functions
 tap.test("constructing with different underlying emitters works", t => {
     let created = false;
     new BindableObserver(TestEmitter, () => created = true);
@@ -51,10 +50,8 @@ tap.test("constructing with a premade EventEmitter works", t => {
 
 tap.test("constructing with no eventEmitter parameter works", t => {
     let obs = new BindableObserver();
-    let emitter1 = new EventEmitter();
-    let emitter2 = new EventEmitter();
     let event = new TestEvent1();
-    let errorInstance = new UndefinedInternalEmitterError();
+    let errorInstance = new UndefinedEmitterError();
 
     t.throws(() => obs.addListener(event, () => { }), errorInstance, "addListener() throws for incomplete BindableObserver");
     t.throws(() => obs.emit(event), errorInstance, "emit() throws for incomplete BindableObserver");
@@ -66,10 +63,96 @@ tap.test("constructing with no eventEmitter parameter works", t => {
     t.throws(() => obs.removeAllListeners(), errorInstance, "removeAllListeners() throws for incomplete BindableObserver");
     t.throws(() => obs.removeListener(event, () => { }), errorInstance, "removeListener() throws for incomplete BindableObserver");
     t.throws(() => obs.hasListener(event, () => { }), errorInstance, "hasListener() throws for incomplete BindableObserver");
+    t.end();
+});
 
-    obs.setInternalEmitter(emitter1);
+tap.test("cacheLimit sets the maximum guid cache size", t => {
+    let obs = new BindableObserver(EventEmitter);
+    let event1 = new TestEvent1();
+    let event2 = new TestEvent1();
+    let event3 = new TestEvent1();
 
-    t.equal(obs.getInternalEmitter() === emitter1, true, "Internal emitter equals what it was set to");
+    obs.cacheLimit = 10;
+
+    t.equal(obs.cacheLimit, 10, "change cache limit from default");
+
+    obs.cacheLimit = 2;
+
+    t.equal(obs.cacheLimit, 2, "shrink cache limit");
+
+    obs.cacheLimit = 0;
+
+    t.equal(obs.cacheLimit, 0, "set cache limit to zero (unlimited)");
+
+    obs.cacheLimit = 1;
+
+    t.equal(obs.cacheLimit, 1, "change cache limit from unlimited");
+
+    obs.cacheLimit = 35;
+
+    t.equal(obs.cacheLimit, 35, "expand cache limit");
+
+    obs.cacheLimit = 35;
+
+    t.equal(obs.cacheLimit, 35, "no change to cache limit");
+
+    obs.cacheLimit = -48;
+    t.equal(obs.cacheLimit, 0, "change cache limit to negative value");
+
+    obs.cacheLimit = 2;
+    obs.emit(event1);
+    obs.emit(event2);
+    obs.emit(event3);
+    t.equal(obs.cacheSize, 2, "cache limited");
+
+    t.end();
+});
+
+tap.test("cacheSize gets the current number of stored items in cache", t => {
+    let obs = new BindableObserver(EventEmitter);
+
+    t.equal(obs.cacheSize, 0, "cacheSize starts with 0 length");
+
+    obs.emit(new TestEvent1());
+    obs.emit(new TestEvent1());
+
+    t.equal(obs.cacheSize, 2, "cacheSize increased by 2 after emitting twice");
+    t.end();
+});
+
+tap.test("clearCache() clears guid cache", t => {
+    let obs = new BindableObserver(EventEmitter);
+    obs.emitCacheLimitChangeEvents = false;
+    obs.emitListenerBoundEvents = false;
+    let event = new TestEvent1();
+    let executionCount = 0;
+
+    obs.cacheLimit = 5;
+    obs.on(TestEvent1, () => executionCount++);
+
+    t.equal(obs.cacheSize, 0, "no guids in cache before emitting event");
+
+    obs.emit(event);
+    obs.clearCache();
+
+    t.equal(obs.cacheSize, 0, "cache cleared");
+
+    obs.emit(event);
+
+    t.equal(executionCount, 2, "event executed successfully after clear");
+
+    t.end();
+});
+
+tap.test("setEmitter() changes the emitter the BindableObserver uses", t => {
+    let obs = new BindableObserver();
+    let emitter1 = new EventEmitter();
+    let emitter2 = new EventEmitter();
+    let event = new TestEvent1();
+
+    obs.setEmitter(emitter1);
+
+    t.equal(obs.getEmitter() === emitter1, true, "Internal emitter equals what it was set to");
     t.doesNotThrow(() => obs.addListener(event, () => { }), "addListener() throws for incomplete BindableObserver");
     t.doesNotThrow(() => obs.emit(event), "emit() throws for incomplete BindableObserver");
     t.doesNotThrow(() => obs.off(event, () => { }), "off() throws for incomplete BindableObserver");
@@ -81,54 +164,13 @@ tap.test("constructing with no eventEmitter parameter works", t => {
     t.doesNotThrow(() => obs.removeListener(event, () => { }), "removeListener() throws for incomplete BindableObserver");
     t.doesNotThrow(() => obs.hasListener(event, () => { }), "hasListener() throws for incomplete BindableObserver");
 
-    obs.setInternalEmitter(emitter2);
+    obs.setEmitter(emitter2);
 
-    t.equal(obs.getInternalEmitter() === emitter1, false, "Internal emitter no longer equals the old emitter");
-    t.equal(obs.getInternalEmitter() === emitter2, true, "Internal emitter now equals the new emitter.");
-
+    t.equal(obs.getEmitter() === emitter1, false, "Internal emitter no longer equals the old emitter");
+    t.equal(obs.getEmitter() === emitter2, true, "Internal emitter now equals the new emitter.");
     t.end();
 });
 
-// 1: -
-tap.test("setIdCacheLimit() sets the guid cache size", t => {
-    let obs = new BindableObserver(EventEmitter);
-    let event1 = new TestEvent1();
-    let event2 = new TestEvent1();
-    let event3 = new TestEvent1();
-
-    obs.setIdCacheLimit(10);
-
-    t.equal(obs.getIdCacheLimit(), 10, "change cache limit from default");
-
-    obs.setIdCacheLimit(2);
-
-    t.equal(obs.getIdCacheLimit(), 2, "shrink cache limit");
-
-    obs.setIdCacheLimit(0);
-
-    t.equal(obs.getIdCacheLimit(), 0, "set cache limit to zero (unlimited)");
-
-    obs.setIdCacheLimit(1);
-
-    t.equal(obs.getIdCacheLimit(), 1, "change cache limit from unlimited");
-
-    obs.setIdCacheLimit(35);
-
-    t.equal(obs.getIdCacheLimit(), 35, "expand cache limit");
-
-    obs.setIdCacheLimit(-48);
-    t.equal(obs.getIdCacheLimit(), 0, "change cache limit to negative value");
-
-    obs.setIdCacheLimit(2);
-    obs.emit(event1);
-    obs.emit(event2);
-    obs.emit(event3);
-    t.equal(obs.getIdCacheSize(), 2, "cache limited");
-
-    t.end();
-});
-
-// 3: -
 tap.test("addListener() binds a function to an event", t => {
     let obs = new BindableObserver(EventEmitter);
     let evoked1Count = 0;
@@ -148,70 +190,6 @@ tap.test("addListener() binds a function to an event", t => {
     t.end();
 });
 
-// 4: -
-tap.test("on() binds a function to an event", t => {
-    let obs = new BindableObserver(EventEmitter);
-    let evoked1Count = 0;
-    let evoked2Count = 0;
-    let event1 = new TestEvent2();
-    let event2 = new TestEvent2();
-
-    obs.on(TestEvent1, () => evoked1Count++);
-    obs.on(event1, () => evoked2Count++);
-    obs.emit(new TestEvent1());
-    obs.emit(new TestEvent1());
-    obs.emit(event1);
-    obs.emit(event2);
-
-    t.equal(evoked1Count, 2, "on() event class bound");
-    t.equal(evoked2Count, 2, "on() event instance bound");
-    t.end();
-});
-
-// 5: -
-tap.test("once() binds a function to an event", t => {
-    let obs = new BindableObserver(EventEmitter);
-    let evoked1Count = 0;
-    let evoked2Count = 0;
-    let event1 = new TestEvent2();
-    let event2 = new TestEvent2();
-
-    obs.once(TestEvent1, () => evoked1Count++);
-    obs.once(event2, () => evoked2Count++);
-    obs.emit(new TestEvent1());
-    obs.emit(new TestEvent1());
-    obs.emit(event1);
-    obs.emit(event2);
-
-    t.equal(evoked1Count, 1, "once() event class bound");
-    t.equal(evoked2Count, 1, "once() event instance bound");
-    t.end();
-});
-
-// 2: 4
-tap.test("clearIdCache() clears guid cache", t => {
-    let obs = new BindableObserver(EventEmitter);
-    let event = new TestEvent1();
-    let executionCount = 0;
-
-    obs.setIdCacheLimit(5);
-    obs.on(TestEvent1, () => executionCount++);
-
-    t.equal(obs.getIdCacheSize(), 0, "no guids in cache before emitting event");
-
-    obs.emit(event);
-    obs.clearIdCache();
-
-    t.equal(obs.getIdCacheSize(), 0, "cache cleared");
-
-    obs.emit(event);
-
-    t.equal(executionCount, 2, "event executed successfully after clear");
-
-    t.end();
-});
-
-// 6: 4
 tap.test("off() unbinds a function from an event", t => {
     let obs = new BindableObserver(EventEmitter);
     let evoked1Count = 0;
@@ -251,7 +229,166 @@ tap.test("off() unbinds a function from an event", t => {
     t.end();
 });
 
-// 7: 4
+tap.test("on() binds a function to an event", t => {
+    let obs = new BindableObserver(EventEmitter);
+    let evoked1Count = 0;
+    let evoked2Count = 0;
+    let event1 = new TestEvent2();
+    let event2 = new TestEvent2();
+
+    obs.on(TestEvent1, () => evoked1Count++);
+    obs.on(event1, () => evoked2Count++);
+    obs.emit(new TestEvent1());
+    obs.emit(new TestEvent1());
+    obs.emit(event1);
+    obs.emit(event2);
+
+    t.equal(evoked1Count, 2, "on() event class bound");
+    t.equal(evoked2Count, 2, "on() event instance bound");
+    t.end();
+});
+
+tap.test("once() binds a function to an event", t => {
+    let obs = new BindableObserver(EventEmitter);
+    let evoked1Count = 0;
+    let evoked2Count = 0;
+    let event1 = new TestEvent2();
+    let event2 = new TestEvent2();
+
+    obs.once(TestEvent1, () => evoked1Count++);
+    obs.once(event2, () => evoked2Count++);
+    obs.emit(new TestEvent1());
+    obs.emit(new TestEvent1());
+    obs.emit(event1);
+    obs.emit(event2);
+
+    t.equal(evoked1Count, 1, "once() event class bound");
+    t.equal(evoked2Count, 1, "once() event instance bound");
+    t.end();
+});
+
+tap.test("prependListener() binds a function to an event", t => {
+    let obs = new BindableObserver(EventEmitter);
+    let blocker = false;
+    let evoked = false;
+    let event = new TestEvent1();
+
+    obs.on(TestEvent1, () => {
+        if (!blocker) {
+            evoked = true;
+        }
+    });
+    obs.prependListener(TestEvent1, () => blocker = true);
+    obs.emit(event);
+
+    t.equal(blocker, true, "second function called.");
+    t.equal(evoked, false, "first function blocked.");
+    t.end();
+});
+
+tap.test("prependOnceListener() binds a function to an event.", t => {
+    let obs = new BindableObserver(EventEmitter);
+    let blocker = false;
+    let evoked1Count = 0;
+    let evoked2Count = 0;
+    let event1 = new TestEvent1();
+    let event2 = new TestEvent1();
+
+    obs.on(TestEvent1, () => {
+        if (!blocker) {
+            evoked1Count++;
+        }
+    });
+    obs.prependOnceListener(TestEvent1, () => {
+        blocker = true;
+        evoked2Count++;
+    });
+    obs.emit(event1);
+    obs.emit(event2);
+
+    t.equal(blocker, true, "blocker set in prepend");
+    t.equal(evoked1Count, 0, "first event blocked");
+    t.equal(evoked2Count, 1, "prepended listener called once");
+    t.end();
+});
+
+tap.test("removeAllListeners() unbinds all functions from events", t => {
+    let obs = new BindableObserver(EventEmitter);
+    let event11 = new TestEvent1();
+    let event12 = new TestEvent1();
+    let event21 = new TestEvent2();
+    let event22 = new TestEvent2();
+    let event31 = new TestEvent3();
+    let ev1Count = 0;
+    let ev2Count = 0;
+    let ev3Count = 0;
+
+    obs.on(TestEvent1, () => ev1Count++);
+    obs.on(TestEvent1, () => ev1Count++);
+    obs.on(TestEvent2, () => ev2Count++);
+    obs.on(TestEvent2, () => ev2Count++);
+    obs.on(TestEvent3, () => ev3Count++);
+    obs.on(TestEvent3, () => ev3Count++);
+    obs.removeAllListeners(TestEvent1);
+    obs.emit(event11);
+    obs.emit(event12);
+    obs.emit(event21);
+
+    t.equal(ev1Count, 0, "removed all listeners from an event");
+    t.equal(ev2Count, 2, "kept unaffected events and listeners");
+
+    obs.removeAllListeners();
+    obs.emit(event22);
+    obs.emit(event31);
+
+    t.equal(ev2Count, 2, "removed testevent2 when removing all listeners");
+    t.equal(ev3Count, 0, "removed testevent3 when removing all listeners");
+
+    t.end();
+});
+
+tap.test("removeAllListeners() does not remove listeners bound using the emitter instance", t => {
+    let emitter = new EventEmitter();
+    let obs = new BindableObserver(emitter);
+    let count = 0;
+
+    emitter.on("myEvent", () => count++);
+    obs.removeAllListeners();
+    emitter.emit("myEvent");
+
+    t.equal(count, 1, "removeAllListeners() did not remove emitter's listeners");
+    t.end();
+});
+
+tap.test("removeAllListeners(EmitEvent) does not remove listeners needed for binding observers", t => {
+    let obs1 = new BindableObserver(EventEmitter);
+    let obs2 = new BindableObserver(EventEmitter);
+    let called1 = false;
+    let called2 = false;
+
+    obs1.emitListenerBoundEvents = false;
+    obs1.emitListenerRemovedEvents = false;
+    obs1.emitObserverBoundEvents = false;
+    obs1.emitObserverUnboundEvents = false;
+    obs2.emitListenerBoundEvents = false;
+    obs2.emitListenerRemovedEvents = false;
+    obs2.emitObserverBoundEvents = false;
+    obs2.emitObserverUnboundEvents = false;
+
+    obs1.on(EmitEvent, () => called1 = true);
+    obs2.on(EmitEvent, () => called2 = true);
+    obs1.bind(obs2);
+    called1 = false;
+    called2 = false;
+    obs1.removeAllListeners(EmitEvent);
+
+    obs1.emit(new TestEvent1());
+
+    t.equal(called1, false, "EmitEvent bind for obs1 was successfully removed");
+    t.equal(called2, true, "Listener made for binding successfully kept");
+    t.end();
+});
+
 tap.test("removeListener() unbinds a function from an event", t => {
     let obs = new BindableObserver(EventEmitter);
     let evoked1Count = 0;
@@ -291,87 +428,6 @@ tap.test("removeListener() unbinds a function from an event", t => {
     t.end();
 });
 
-// 8: 4
-tap.test("prependListener() binds a function to an event", t => {
-    let obs = new BindableObserver(EventEmitter);
-    let blocker = false;
-    let evoked = false;
-    let event = new TestEvent1();
-
-    obs.on(TestEvent1, () => {
-        if (!blocker) {
-            evoked = true;
-        }
-    });
-    obs.prependListener(TestEvent1, () => blocker = true);
-    obs.emit(event);
-
-    t.equal(blocker, true, "second function called.");
-    t.equal(evoked, false, "first function blocked.");
-    t.end();
-});
-
-// 9: 4
-tap.test("prependOnceListener() binds a function to an event.", t => {
-    let obs = new BindableObserver(EventEmitter);
-    let blocker = false;
-    let evoked1Count = 0;
-    let evoked2Count = 0;
-    let event1 = new TestEvent1();
-    let event2 = new TestEvent1();
-
-    obs.on(TestEvent1, () => {
-        if (!blocker) {
-            evoked1Count++;
-        }
-    });
-    obs.prependOnceListener(TestEvent1, () => {
-        blocker = true;
-        evoked2Count++;
-    });
-    obs.emit(event1);
-    obs.emit(event2);
-
-    t.equal(blocker, true, "blocker set in prepend");
-    t.equal(evoked1Count, 0, "first event blocked");
-    t.equal(evoked2Count, 1, "prepended listener called once");
-    t.end();
-});
-
-// 10: 4
-tap.test("removeAllListeners() unbinds all functions from events", t => {
-    let obs = new BindableObserver(EventEmitter);
-    let event11 = new TestEvent1();
-    let event12 = new TestEvent1();
-    let event21 = new TestEvent2();
-    let event22 = new TestEvent2();
-    let event31 = new TestEvent3();
-    let ev1Count = 0;
-    let ev2Count = 0;
-    let ev3Count = 0;
-
-    obs.on(TestEvent1, () => ev1Count++);
-    obs.on(TestEvent2, () => ev2Count++);
-    obs.on(TestEvent3, () => ev3Count++);
-    obs.removeAllListeners(TestEvent1);
-    obs.emit(event11);
-    obs.emit(event12);
-    obs.emit(event21);
-
-    t.equal(ev1Count, 0, "removed all listeners from an event");
-    t.equal(ev2Count, 1, "kept unaffected events and listeners");
-
-    obs.removeAllListeners();
-    obs.emit(event22);
-    obs.emit(event31);
-
-    t.equal(ev2Count, 1, "removed testevent2 when removing all listeners");
-    t.equal(ev3Count, 0, "removed testevent3 when removing all listeners");
-
-    t.end();
-});
-
-// 11: 4
 tap.test("hasListener() checks if a listener is bound to an event", t => {
     let obs = new BindableObserver(EventEmitter);
     let f1 = () => { };
@@ -387,44 +443,76 @@ tap.test("hasListener() checks if a listener is bound to an event", t => {
     t.end();
 });
 
-// 12: 4
-tap.test("emit() emits an EmitEvent for an event", t => {
-    let obs = new BindableObserver(EventEmitter);
-    let event = new TestEvent1();
-    let executed = false;
+tap.test("bind() binds a relay and adds it to the list of bound relays", t => {
+    let obs1 = new BindableObserver(EventEmitter);
+    let obs2 = new BindableObserver(EventEmitter);
+    let called = false;
 
-    obs.on(EmitEvent, e => {
-        executed = e.emitted.id.equals(event.id);
-    });
-    obs.emit(event);
+    obs2.on(TestEvent1, () => called = true);
+    obs1.bind(obs2);
+    obs1.emit(new TestEvent1());
 
-    t.equal(executed, true, "EmitEvent sent after emit");
+    t.equal(obs1.checkBinding(obs2), true, "obs2 bound to obs1");
+    t.equal(called, true, "Event relay successful");
     t.end();
 });
 
-// 13: 1, 4
+tap.test("bind() only binds a relay at most once", t => {
+    let obs1 = new BindableObserver(EventEmitter);
+    let obs2 = new BindableObserver(EventEmitter);
+    let count = 0;
+
+    obs2.on(TestEvent1, () => count++);
+    obs1.bind(obs2);
+    obs1.bind(obs2);
+    obs1.emit(new TestEvent1());
+
+    t.equal(count, 1, "BindableObserver only bound once.");
+    t.end();
+});
+
+tap.test("unbind() unbinds observers", t => {
+    let obs1 = new BindableObserver(EventEmitter);
+    let obs2 = new BindableObserver(EventEmitter);
+    let event = new TestEvent1();
+    let evoked = false;
+    let setEvokeFunction1: () => void = () => evoked = true;
+
+    obs1.on(event, setEvokeFunction1);
+    obs2.bind(obs1);
+    obs2.unbind(obs1);
+    obs2.emit(event);
+
+    t.equal(evoked, false, "unbinding successful");
+    t.doesNotThrow(() => obs1.unbind(obs2), "unbind does not throw an error when unbinding two non-bound observers");
+    t.end();
+});
+
+
+// cache functionality
 tap.test("cache prevents repeated event handling", t => {
     let obs = new BindableObserver(EventEmitter);
+    obs.emitCacheLimitChangeEvents = false;
+    obs.emitListenerBoundEvents = false;
     let evokeCount = 0;
     let event1 = new TestEvent1();
     let event2 = new TestEvent1();
 
-    obs.setIdCacheLimit(5);
+    obs.cacheLimit = 5;
     obs.on(TestEvent1, () => evokeCount++);
     obs.emit(event1);
     obs.emit(event1);
 
     t.equal(evokeCount, 1, "event stopped by cache");
-    t.equal(obs.getIdCacheSize(), 1, "cache only stored one event");
+    t.equal(obs.cacheSize, 1, "cache only stored one event");
 
     obs.emit(event2);
 
     t.equal(evokeCount, 2, "event not stopped by cache");
-    t.equal(obs.getIdCacheSize(), 2, "cache stored second event");
+    t.equal(obs.cacheSize, 2, "cache stored second event");
     t.end();
 });
 
-// 14: 1, 4
 tap.test("cache limit removes oldest cached items", t => {
     let obs = new BindableObserver(EventEmitter);
     let event1 = new TestEvent1();
@@ -432,7 +520,7 @@ tap.test("cache limit removes oldest cached items", t => {
     let event3 = new TestEvent1();
     let evokeCount = 0;
 
-    obs.setIdCacheLimit(2);
+    obs.cacheLimit = 2;
     obs.on(TestEvent1, () => evokeCount++);
     obs.emit(event1);
     obs.emit(event2);
@@ -440,462 +528,634 @@ tap.test("cache limit removes oldest cached items", t => {
     obs.emit(event1);
 
     t.equal(evokeCount, 4, "old cache removed");
-    t.equal(obs.getIdCacheSize(), 2, "cache length matches limit");
+    t.equal(obs.cacheSize, 2, "cache length matches limit");
     t.end();
 });
 
-// 22: 2, 4
-tap.test("checkBinding() returns the binding status of a SimpleObserver to another", t => {
-    let obs1 = new BindableObserver(EventEmitter);
-    let obs2 = new BindableObserver(EventEmitter);
+
+// BindableObserver event functionality
+tap.test("emitCacheLimitChangeEvents setter properly changes property", t => {
+    let obs = new BindableObserver(EventEmitter);
+    obs.emitCacheLimitChangeEvents = true;
+
+    t.equal(obs.emitCacheLimitChangeEvents, true, "emitCacheLimitChangeEvents successfully set to true");
+
+    obs.emitCacheLimitChangeEvents = false;
+
+    t.equal(obs.emitCacheLimitChangeEvents, false, "emitCacheLimitChangeEvents successfully set to false");
+
+    obs.emitCacheLimitChangeEvents = true;
+
+    t.equal(obs.emitCacheLimitChangeEvents, true, "emitCacheLimitChangeEvents successfully reset to true");
+    t.end();
+});
+
+tap.test("cacheLimit setter emits a CacheLimitChangeEvent on successful limit change", t => {
+    let obs = new BindableObserver(EventEmitter);
+    obs.emitCacheLimitChangeEvents = true;
+
+    let count = 0;
+    let formerLimit = obs.cacheLimit;
+    let obtainedPrevious: number | undefined = undefined;
+    let obtainedNew: number | undefined = undefined;
+    let obtainedObs: BindableObserver | undefined = undefined;
+
+    obs.emitCacheLimitChangeEvents = true;
+    obs.on(CacheLimitChangedEvent, e => {
+        obtainedPrevious = e.formerLimit;
+        obtainedNew = e.newLimit;
+        obtainedObs = e.observer;
+
+        count++;
+    });
+    obs.cacheLimit = 25;
+
+    t.equal(count, 1, "CacheLimitChangedEvent was emitted after changing cache limit");
+    t.equal(obtainedPrevious, formerLimit, "CacheLimitChangedEvent.formerLimit successfully set");
+    t.equal(obtainedNew, 25, "CacheLimitChangedEvent.newLimit successfully set");
+    t.equal(obtainedObs, obs, "CacheLimitChangedEvent.observer successfully set");
+
+    obs.cacheLimit = 25;
+
+    t.equal(count, 1, "CacheLimitChangedEvent not emitted after setting to the current limit");
+
+    obs.emitCacheLimitChangeEvents = false;
+    formerLimit = obs.cacheLimit;
+    obs.cacheLimit = 30;
+
+    t.equal(count, 1, "CacheLimitChangedEvent was not emitted after disabling");
+
+    t.end();
+});
+
+tap.test("emitEmitterChangedEvents setter properly changes property", t => {
+    let obs = new BindableObserver(EventEmitter);
+    obs.emitEmitterChangedEvents = true;
+
+    t.equal(obs.emitEmitterChangedEvents, true, "emitEmitterChangedEvents successfully set to true");
+
+    obs.emitEmitterChangedEvents = false;
+
+    t.equal(obs.emitEmitterChangedEvents, false, "emitEmitterChangedEvents successfully set to false");
+
+    obs.emitEmitterChangedEvents = true;
+
+    t.equal(obs.emitEmitterChangedEvents, true, "emitEmitterChangedEvents successfully reset to true");
+    t.end();
+});
+
+tap.test("setEmitter() emits an EmitterChangedEvent on successful change", t => {
+    let emitter1 = new EventEmitter();
+    let emitter2 = new EventEmitter();
+    let obs = new BindableObserver(emitter1);
+    let formerEmitter: EventEmitter | undefined = undefined;
+    let newEmitter: EventEmitter | undefined = undefined;
+    let observer: BindableObserver | undefined = undefined;
+    let emitCount = 0;
+
+    obs.emitEmitterChangedEvents = true;
+    obs.on(EmitterChangedEvent, e => {
+        formerEmitter = e.formerEmitter;
+        newEmitter = e.newEmitter;
+        observer = e.observer;
+        emitCount++;
+    });
+    obs.setEmitter(emitter2);
+
+    t.equal(emitCount, 1, "EmitterChangedEvent emitted after changing the emitter");
+    t.equal(formerEmitter, emitter1, "EmitterChangedEvent.formerEmitter successfully set");
+    t.equal(newEmitter, emitter2, "EmitterChangedEvent.newEmitter successfully set");
+    t.equal(observer, obs, "EmitterChangedEvent.observer successfully set");
+
+    obs.setEmitter(emitter2);
+
+    t.equal(emitCount, 1, "EmitterchangedEvent not emitted after setting the emitter to the current emitter");
+
+    obs.emitEmitterChangedEvents = false;
+    obs.setEmitter(emitter1);
+
+    t.equal(emitCount, 1, "EmitterChangedEvent was not emitted after disabling");
+
+    t.end();
+});
+
+tap.test("emitEmitEvents setter properly changes property", t => {
+    let obs = new BindableObserver(EventEmitter);
+    obs.emitEmitEvents = true;
+
+    t.equal(obs.emitEmitEvents, true, "emitEmitEvents successfully set to true");
+
+    obs.emitEmitEvents = false;
+
+    t.equal(obs.emitEmitEvents, false, "emitEmitEvents successfully set to false");
+
+    obs.emitEmitEvents = true;
+
+    t.equal(obs.emitEmitEvents, true, "emitEmitEvents successfully reset to true");
+    t.end();
+});
+
+tap.test("emit() emits an EmitEvent on successful emit", t => {
+    let obs = new BindableObserver(EventEmitter);
+    obs.emitListenerBoundEvents = false;
     let event1 = new TestEvent1();
-    let event2 = new TestEvent2();
-    let evokedFrom = false;
-    let evokedTo = false;
+    let event2 = new TestEvent1();
+    let executionCount = 0;
+    let foundEvent: Event | undefined = undefined;
 
-    t.equal(obs1.checkBinding(obs2), undefined, "checkBinding() return undefined for unbound observers");
+    obs.emitEmitEvents = true;
+    obs.on(EmitEvent, e => {
+        foundEvent = e.emitted;
+        executionCount++;
+    });
+    obs.emit(event1);
 
-    obs1.on(TestEvent2, () => evokedFrom = true);
-    obs2.on(TestEvent1, () => evokedTo = true);
-    obs1.bind(obs2, RelayFlags.From);
-    obs1.emit(event1);
-    obs2.emit(event2);
+    t.equal(executionCount, 1, "EmitEvent emitted after emit");
+    t.equal(foundEvent, event1, "EmitEvent.emitted successfully set");
 
-    let expected = RelayFlags.None |
-        (evokedFrom ? RelayFlags.From : RelayFlags.None) |
-        (evokedTo ? RelayFlags.To : RelayFlags.None);
+    obs.emit(event1);
 
-    t.equal(obs1.checkBinding(obs2), expected, "checkBinding() pass 1");
+    t.equal(executionCount, 1, "EmitEvent not emitted after sending duplicate event");
 
-    evokedFrom = false;
-    evokedTo = false;
-    obs1.clearIdCache();
-    obs2.clearIdCache();
+    obs.emitEmitEvents = false;
+    obs.emit(event2);
 
-    obs1.bind(obs2, RelayFlags.To);
-    obs1.emit(event1);
-    obs2.emit(event2);
-
-    expected = RelayFlags.None |
-        (evokedFrom ? RelayFlags.From : RelayFlags.None) |
-        (evokedTo ? RelayFlags.To : RelayFlags.None);
-
-    t.equal(obs1.checkBinding(obs2), expected, "checkBinding() pass 2");
-
-    evokedFrom = false;
-    evokedTo = false;
-    obs1.clearIdCache();
-    obs2.clearIdCache();
-
-    obs1.bind(obs2, RelayFlags.All);
-    obs1.emit(event1);
-    obs2.emit(event2);
-
-    expected = RelayFlags.None |
-        (evokedFrom ? RelayFlags.From : RelayFlags.None) |
-        (evokedTo ? RelayFlags.To : RelayFlags.None);
-
-    t.equal(obs1.checkBinding(obs2), expected, "checkBinding() pass 3");
-
-    evokedFrom = false;
-    evokedTo = false;
-    obs1.clearIdCache();
-    obs2.clearIdCache();
-
-    obs1.bind(obs2, RelayFlags.None);
-    obs1.emit(event1);
-    obs2.emit(event2);
-
-    expected = RelayFlags.None |
-        (evokedFrom ? RelayFlags.From : RelayFlags.None) |
-        (evokedTo ? RelayFlags.To : RelayFlags.None);
-
-    t.equal(obs1.checkBinding(obs2), expected, "checkBinding() pass 4");
+    t.equal(executionCount, 1, "EmitEvent not emitted after being disabled");
     t.end();
 });
 
-// 15: 22
-tap.test("bind() binds a relay and adds it to the list of bound relays", t => {
-    let obs1 = new BindableObserver(EventEmitter);
-    let obs2 = new BindableObserver(EventEmitter);
-    let bindingStatus: RelayFlags | undefined;
+tap.test("emitListenerBoundEvents setter properly changes property", t => {
+    let obs = new BindableObserver(EventEmitter);
+    obs.emitListenerBoundEvents = true;
 
-    obs1.bind(obs2, RelayFlags.All);
-    bindingStatus = obs1.checkBinding(obs2);
+    t.equal(obs.emitListenerBoundEvents, true, "emitListenerBoundEvents successfully set to true");
 
-    t.equal(bindingStatus, RelayFlags.All);
+    obs.emitListenerBoundEvents = false;
+
+    t.equal(obs.emitListenerBoundEvents, false, "emitListenerBoundEvents successfully set to false");
+
+    obs.emitListenerBoundEvents = true;
+
+    t.equal(obs.emitListenerBoundEvents, true, "emitListenerBoundEvents successfully reset to true");
     t.end();
 });
 
-// 16: 4, 15
-tap.test("bound observers with RelayFlags.To can forward events", t => {
-    let obs1 = new BindableObserver(EventEmitter);
-    let obs2 = new BindableObserver(EventEmitter);
-    let event1 = new TestEvent1();
-    let event2 = new TestEvent2();
-    let event3 = new TestEvent3();
-    let event4 = new TestEvent4();
-    let evoked1 = false;
-    let evoked2 = false;
-    let evoked3 = false;
-    let evoked4 = false;
+tap.test("addListener() emits a ListenerBoundEvent on binding a new listener", t => {
+    let obs = new BindableObserver(EventEmitter);
+    let l1 = function (event: Event) { event; };
+    let l2 = function (event: Event) { event; };
 
-    // in obs1, not in obs2
-    // in obs1, in obs2
-    // not in obs1, in obs2
-    // not in obs1, not in obs2
-    obs1.on(TestEvent1, () => { });
-    obs1.on(TestEvent2, () => { });
-    obs2.on(TestEvent2, () => evoked2 = true);
-    obs2.on(TestEvent3, () => evoked3 = true);
-    obs1.bind(obs2, RelayFlags.To);
-    obs2.on(TestEvent1, () => evoked1 = true);
-    obs2.on(TestEvent4, () => evoked4 = true);
-    obs1.emit(event1);
-    obs1.emit(event2);
-    obs1.emit(event3);
-    obs1.emit(event4);
+    let count = 0;
+    let observer: BindableObserver | undefined = undefined;
+    let listener: ((event: Event) => void) | undefined = undefined;
+    let event: (new (...args: any[]) => Event) | undefined = undefined;
+    let once: boolean | undefined = undefined;
 
-    t.equal(evoked1, true, "send event originally in 1, not in 2");
-    t.equal(evoked2, true, "send event originally in 1 and 2");
-    t.equal(evoked3, true, "send event not originally in 1, in 2");
-    t.equal(evoked4, true, "send event not originally in 1 or 2");
+    obs.emitListenerBoundEvents = true;
+    obs.on(ListenerBoundEvent, e => {
+        observer = e.observer;
+        listener = e.listener;
+        event = e.event;
+        once = e.once;
+        count++;
+    });
+    count = 0;
+    obs.addListener(TestEvent1, l1);
+
+    t.equal(count, 1, "ListnerBoundEvent emitted successfully for addListener");
+    t.equal(observer, obs, "ListenerBoundEvent.observer successfully set for addListener");
+    t.equal(listener, l1, "ListenerBoundEvent.listener successfully set for addListener");
+    t.equal(event, TestEvent1, "ListenerBoundEvent.event successfully set for addListener");
+    t.equal(once, false, "ListenerBoundEvent.once successfully set for addListener");
+
+    obs.emitListenerBoundEvents = false;
+    obs.addListener(TestEvent2, l2);
+
+    t.equal(count, 1, "ListenerBoundEvent did not emit after being disabled for addListener");
     t.end();
 });
 
-// 17: 4, 15
-tap.test("bound observers with RelayFlags.From can receive events", t => {
-    let obs1 = new BindableObserver(EventEmitter);
-    let obs2 = new BindableObserver(EventEmitter);
-    let event1 = new TestEvent1();
-    let event2 = new TestEvent2();
-    let event3 = new TestEvent3();
-    let event4 = new TestEvent4();
-    let evoked1 = false;
-    let evoked2 = false;
-    let evoked3 = false;
-    let evoked4 = false;
+tap.test("on() emits a ListenerBoundEvent on binding a new listener", t => {
+    let obs = new BindableObserver(EventEmitter);
+    let l1 = function (event: Event) { event; };
+    let l2 = function (event: Event) { event; };
 
-    // in obs1, not in obs2
-    // in obs1, in obs2
-    // not in obs1, in obs2
-    // not in obs1, not in obs2
-    obs1.on(TestEvent1, () => evoked1 = true);
-    obs1.on(TestEvent2, () => evoked2 = true);
-    obs2.on(TestEvent2, () => { });
-    obs2.on(TestEvent3, () => { });
-    obs1.bind(obs2, RelayFlags.From);
-    obs1.on(TestEvent3, () => evoked3 = true);
-    obs1.on(TestEvent4, () => evoked4 = true);
-    obs2.emit(event1);
-    obs2.emit(event2);
-    obs2.emit(event3);
-    obs2.emit(event4);
+    let count = 0;
+    let observer: BindableObserver | undefined = undefined;
+    let listener: ((event: Event) => void) | undefined = undefined;
+    let event: (new (...args: any[]) => Event) | undefined = undefined;
+    let once: boolean | undefined = undefined;
 
-    t.equal(evoked1, true, "retrieve event originally in 1, not in 2");
-    t.equal(evoked2, true, "retrieve event originally in 1 and 2");
-    t.equal(evoked3, true, "retrieve event not originally in 1, in 2");
-    t.equal(evoked4, true, "retrieve event not originally in 1 or 2");
+    obs.emitListenerBoundEvents = true;
+    obs.on(ListenerBoundEvent, e => {
+        observer = e.observer;
+        listener = e.listener;
+        event = e.event;
+        once = e.once;
+        count++;
+    });
+    count = 0;
+    obs.on(TestEvent1, l1);
+
+    t.equal(count, 1, "ListnerBoundEvent emitted successfully for on");
+    t.equal(observer, obs, "ListenerBoundEvent.observer successfully set for on");
+    t.equal(listener, l1, "ListenerBoundEvent.listener successfully set for on");
+    t.equal(event, TestEvent1, "ListenerBoundEvent.event successfully set for on");
+    t.equal(once, false, "ListenerBoundEvent.once successfully set for on");
+
+    obs.emitListenerBoundEvents = false;
+    obs.on(TestEvent2, l2);
+
+    t.equal(count, 1, "ListenerBoundEvent did not emit after being disabled for on");
     t.end();
 });
 
-// 18: 2, 4, 15
-tap.test("bound observers with RelayFlags.None do not send events", t => {
-    let obs1 = new BindableObserver(EventEmitter);
-    let obs2 = new BindableObserver(EventEmitter);
-    let event1 = new TestEvent1();
-    let event2 = new TestEvent2();
-    let event3 = new TestEvent3();
-    let event4 = new TestEvent4();
-    let evoked11 = false;
-    let evoked21 = false;
-    let evoked12 = false;
-    let evoked22 = false;
-    let evoked13 = false;
-    let evoked23 = false;
-    let evoked14 = false;
-    let evoked24 = false;
+tap.test("once() emits a ListenerBoundEvent on binding a new listener", t => {
+    let obs = new BindableObserver(EventEmitter);
+    let l1 = function (event: Event) { event; };
+    let l2 = function (event: Event) { event; };
+    let l3 = function (event: Event) { event; };
 
-    // in obs1, not in obs2
-    // in obs1, in obs2
-    // not in obs1, in obs2
-    // not in obs1, not in obs2
-    obs1.on(TestEvent1, () => evoked11 = true);
-    obs1.on(TestEvent2, () => evoked12 = true);
-    obs2.on(TestEvent2, () => evoked22 = true);
-    obs2.on(TestEvent3, () => evoked23 = true);
-    obs1.bind(obs2, RelayFlags.None);
-    obs1.on(TestEvent3, () => evoked13 = true);
-    obs1.on(TestEvent4, () => evoked14 = true);
-    obs2.on(TestEvent1, () => evoked21 = true);
-    obs2.on(TestEvent4, () => evoked24 = true);
-    obs1.emit(event1);
-    obs1.emit(event2);
-    obs1.emit(event3);
-    obs1.emit(event4);
+    let count = 0;
+    let observer: BindableObserver | undefined = undefined;
+    let listener: ((event: Event) => void) | undefined = undefined;
+    let event: (new (...args: any[]) => Event) | undefined = undefined;
+    let once: boolean | undefined = undefined;
 
-    t.equal(evoked21, false, "2 didnt retrieve event originally in 1, not in 2");
-    t.equal(evoked22, false, "2 didnt retrieve event originally in 1 and 2");
-    t.equal(evoked23, false, "2 didnt retrieve event not originally in 1, in 2");
-    t.equal(evoked24, false, "2 didnt retrieve event not originally in 1 or 2");
+    obs.emitListenerBoundEvents = true;
+    obs.on(ListenerBoundEvent, e => {
+        observer = e.observer;
+        listener = e.listener;
+        event = e.event;
+        once = e.once;
+        count++;
+    });
+    count = 0;
+    obs.once(TestEvent1, l1);
 
-    obs1.clearIdCache();
-    obs2.clearIdCache();
-    evoked11 = false;
-    evoked12 = false;
-    evoked13 = false;
-    evoked14 = false;
+    t.equal(count, 1, "ListnerBoundEvent emitted successfully for once on constructor");
+    t.equal(observer, obs, "ListenerBoundEvent.observer successfully set for once on constructor");
+    t.equal(listener, l1, "ListenerBoundEvent.listener successfully set for once on constructor");
+    t.equal(event, TestEvent1, "ListenerBoundEvent.event successfully set for once on constructor");
+    t.equal(once, true, "ListenerBoundEvent.once successfully set for once on constructor");
 
-    obs2.emit(event1);
-    obs2.emit(event2);
-    obs2.emit(event3);
-    obs2.emit(event4);
+    obs.once(new TestEvent2, l2);
 
-    t.equal(evoked11, false, "1 didnt retrieve event originally in 1, not in 2");
-    t.equal(evoked12, false, "1 didnt retrieve event originally in 1 and 2");
-    t.equal(evoked13, false, "1 didnt retrieve event not originally in 1, in 2");
-    t.equal(evoked14, false, "1 didnt retrieve event not originally in 1 or 2");
+    t.equal(count, 2, "ListenerBoundEvent emitted successfully when binding on instance");
+    t.equal(observer, obs, "ListenerBoundEvent.observer successfully set for once on instance");
+    t.equal(listener, l2, "ListenerBoundEvent.listener successfully set for once on instance");
+    t.equal(event, TestEvent2, "ListenerBoundEvent.event successfully set for once on instance");
+    t.equal(once, true, "ListenerBoundEvent.once successfully set for once on instance");
+
+    obs.emitListenerBoundEvents = false;
+    obs.once(TestEvent2, l3);
+
+    t.equal(count, 2, "ListenerBoundEvent did not emit after being disabled for once");
     t.end();
 });
 
-// 19: 2, 4, 15
-tap.test("bound observers with RelayFlags.All can forward and receive events", t => {
-    let obs1 = new BindableObserver(EventEmitter);
-    let obs2 = new BindableObserver(EventEmitter);
-    let event1 = new TestEvent1();
-    let event2 = new TestEvent2();
-    let event3 = new TestEvent3();
-    let event4 = new TestEvent4();
-    let evoked11 = false;
-    let evoked21 = false;
-    let evoked12 = false;
-    let evoked22 = false;
-    let evoked13 = false;
-    let evoked23 = false;
-    let evoked14 = false;
-    let evoked24 = false;
+tap.test("prependListener() emits a ListenerBoundEvent on binding a new listener", t => {
+    let obs = new BindableObserver(EventEmitter);
+    let l1 = function (event: Event) { event; };
+    let l2 = function (event: Event) { event; };
 
-    // in obs1, not in obs2
-    // in obs1, in obs2
-    // not in obs1, in obs2
-    // not in obs1, not in obs2
-    obs1.on(TestEvent1, () => evoked11 = true);
-    obs1.on(TestEvent2, () => evoked12 = true);
-    obs2.on(TestEvent2, () => evoked22 = true);
-    obs2.on(TestEvent3, () => evoked23 = true);
-    obs1.bind(obs2, RelayFlags.All);
-    obs1.on(TestEvent3, () => evoked13 = true);
-    obs1.on(TestEvent4, () => evoked14 = true);
-    obs2.on(TestEvent1, () => evoked21 = true);
-    obs2.on(TestEvent4, () => evoked24 = true);
-    obs1.emit(event1);
-    obs1.emit(event2);
-    obs1.emit(event3);
-    obs1.emit(event4);
+    let count = 0;
+    let observer: BindableObserver | undefined = undefined;
+    let listener: ((event: Event) => void) | undefined = undefined;
+    let event: (new (...args: any[]) => Event) | undefined = undefined;
+    let once: boolean | undefined = undefined;
 
-    t.equal(evoked21, true, "2 retrieve event originally in 1, not in 2");
-    t.equal(evoked22, true, "2 retrieve event originally in 1 and 2");
-    t.equal(evoked23, true, "2 retrieve event not originally in 1, in 2");
-    t.equal(evoked24, true, "2 retrieve event not originally in 1 or 2");
+    obs.emitListenerBoundEvents = true;
+    obs.on(ListenerBoundEvent, e => {
+        observer = e.observer;
+        listener = e.listener;
+        event = e.event;
+        once = e.once;
+        count++;
+    });
+    count = 0;
+    obs.prependListener(TestEvent1, l1);
 
-    obs1.clearIdCache();
-    obs2.clearIdCache();
-    evoked11 = false;
-    evoked12 = false;
-    evoked13 = false;
-    evoked14 = false;
+    t.equal(count, 1, "ListnerBoundEvent emitted successfully for prependListener");
+    t.equal(observer, obs, "ListenerBoundEvent.observer successfully set for prependListener");
+    t.equal(listener, l1, "ListenerBoundEvent.listener successfully set for prependListener");
+    t.equal(event, TestEvent1, "ListenerBoundEvent.event successfully set for prependListener");
+    t.equal(once, false, "ListenerBoundEvent.once successfully set for prependListener");
 
-    obs2.emit(event1);
-    obs2.emit(event2);
-    obs2.emit(event3);
-    obs2.emit(event4);
+    obs.emitListenerBoundEvents = false;
+    obs.prependListener(TestEvent2, l2);
 
-    t.equal(evoked11, true, "1 retrieve event originally in 1, not in 2");
-    t.equal(evoked12, true, "1 retrieve event originally in 1 and 2");
-    t.equal(evoked13, true, "1 retrieve event not originally in 1, in 2");
-    t.equal(evoked14, true, "1 retrieve event not originally in 1 or 2");
+    t.equal(count, 1, "ListenerBoundEvent did not emit after being disabled for prependListener");
     t.end();
 });
 
-// 20: 2, 4, 15, 16, 17, 18, 19
-tap.test("bind() changes the relay of bound observers", t => {
-    let obs1 = new BindableObserver(EventEmitter);
-    let obs2 = new BindableObserver(EventEmitter);
-    let event11 = new TestEvent1();
-    let event12 = new TestEvent1();
-    let event13 = new TestEvent1();
-    let event14 = new TestEvent1();
-    let event21 = new TestEvent2();
-    let event22 = new TestEvent2();
-    let event23 = new TestEvent2();
-    let event24 = new TestEvent2();
-    let evokedFrom = false;
-    let evokedTo = false;
+tap.test("prependOnceListener() emits a ListenerBoundEvent on binding a new listener", t => {
+    let obs = new BindableObserver(EventEmitter);
+    let l1 = function (event: Event) { event; };
+    let l2 = function (event: Event) { event; };
 
-    obs1.on(TestEvent1, () => evokedFrom = true);
-    obs2.on(TestEvent2, () => evokedTo = true);
+    let count = 0;
+    let observer: BindableObserver | undefined = undefined;
+    let listener: ((event: Event) => void) | undefined = undefined;
+    let event: (new (...args: any[]) => Event) | undefined = undefined;
+    let once: boolean | undefined = undefined;
 
-    // Initialize as none
-    obs1.bind(obs2, RelayFlags.None);
-    obs1.emit(event21);
-    obs2.emit(event11);
+    obs.emitListenerBoundEvents = true;
+    obs.on(ListenerBoundEvent, e => {
+        observer = e.observer;
+        listener = e.listener;
+        event = e.event;
+        once = e.once;
+        count++;
+    });
+    count = 0;
+    obs.prependOnceListener(TestEvent1, l1);
 
-    t.equal(evokedFrom, false, "event not relayed from with RelayFlags.None");
-    t.equal(evokedTo, false, "event not relayed to with RelayFlags.None");
+    t.equal(count, 1, "ListnerBoundEvent emitted successfully for prependOnceListener");
+    t.equal(observer, obs, "ListenerBoundEvent.observer successfully set for prependOnceListener");
+    t.equal(listener, l1, "ListenerBoundEvent.listener successfully set for prependOnceListener");
+    t.equal(event, TestEvent1, "ListenerBoundEvent.event successfully set for prependOnceListener");
+    t.equal(once, true, "ListenerBoundEvent.once successfully set for prependOnceListener");
 
-    evokedFrom = false;
-    evokedTo = false;
+    obs.emitListenerBoundEvents = false;
+    obs.prependOnceListener(TestEvent2, l2);
 
-    // change to From
-    obs1.clearIdCache();
-    obs2.clearIdCache();
-
-    obs1.bind(obs2, RelayFlags.From);
-    obs1.emit(event22);
-    obs2.emit(event12);
-
-    t.equal(evokedFrom, true, "event relayed from after setRelayFlags(RelayFlags.From)");
-    t.equal(evokedTo, false, "event not relayed to after setRelayFlags(RelayFlags.From)");
-
-    evokedFrom = false;
-    evokedTo = false;
-
-    // change to All
-    obs1.clearIdCache();
-    obs2.clearIdCache();
-
-    obs1.bind(obs2, RelayFlags.All);
-    obs1.emit(event24);
-    obs2.emit(event14);
-
-    t.equal(evokedFrom, true, "event relayed from after setRelayFlags(RelayFlags.All)");
-    t.equal(evokedTo, true, "event relayed to after setRelayFlags(RelayFlags.All)");
-
-    evokedFrom = false;
-    evokedTo = false;
-
-    // change to To
-    obs1.clearIdCache();
-    obs2.clearIdCache();
-
-    obs1.bind(obs2, RelayFlags.To);
-    obs1.emit(event23);
-    obs2.emit(event13);
-
-    t.equal(evokedFrom, false, "event not relayed from after setRelayFlags(RelayFlags.To)");
-    t.equal(evokedTo, true, "event relayed to after setRelayFlags(RelayFlags.To)");
-
-    evokedFrom = false;
-    evokedTo = false;
-
-    // change to none
-    obs1.clearIdCache();
-    obs2.clearIdCache();
-
-    obs1.bind(obs2, RelayFlags.None);
-    obs1.emit(event21);
-    obs2.emit(event11);
-
-    t.equal(evokedFrom, false, "event not relayed from with RelayFlags.None");
-    t.equal(evokedTo, false, "event not relayed to with RelayFlags.None");
-
-    evokedFrom = false;
-    evokedTo = false;
-
-    // change to To
-    obs1.clearIdCache();
-    obs2.clearIdCache();
-
-    obs1.bind(obs2, RelayFlags.To);
-    obs1.emit(event23);
-    obs2.emit(event13);
-
-    t.equal(evokedFrom, false, "event not relayed from after setRelayFlags(RelayFlags.To)");
-    t.equal(evokedTo, true, "event relayed to after setRelayFlags(RelayFlags.To)");
-
-    evokedFrom = false;
-    evokedTo = false;
-
-    // change to All
-    obs1.clearIdCache();
-    obs2.clearIdCache();
-
-    obs1.bind(obs2, RelayFlags.All);
-    obs1.emit(event24);
-    obs2.emit(event14);
-
-    t.equal(evokedFrom, true, "event relayed from after setRelayFlags(RelayFlags.All)");
-    t.equal(evokedTo, true, "event relayed to after setRelayFlags(RelayFlags.All)");
-
-    evokedFrom = false;
-    evokedTo = false;
-
-    // change to From
-    obs1.clearIdCache();
-    obs2.clearIdCache();
-
-    obs1.bind(obs2, RelayFlags.From);
-    obs1.emit(event22);
-    obs2.emit(event12);
-
-    t.equal(evokedFrom, true, "event relayed from after setRelayFlags(RelayFlags.From)");
-    t.equal(evokedTo, false, "event not relayed to after setRelayFlags(RelayFlags.From)");
+    t.equal(count, 1, "ListenerBoundEvent did not emit after being disabled for prependOnceListener");
     t.end();
 });
 
-// 21: 22
-tap.test("bind() default sets RelayFlags to RelayFlags.All", t => {
+tap.test("emitListenerRemovedEvents setter properly changes property", t => {
+    let obs = new BindableObserver(EventEmitter);
+    obs.emitListenerRemovedEvents = true;
+
+    t.equal(obs.emitListenerRemovedEvents, true, "emitListenerRemovedEvents successfully set to true");
+
+    obs.emitListenerRemovedEvents = false;
+
+    t.equal(obs.emitListenerRemovedEvents, false, "emitListenerRemovedEvents successfully set to false");
+
+    obs.emitListenerRemovedEvents = true;
+
+    t.equal(obs.emitListenerRemovedEvents, true, "emitListenerRemovedEvents successfully reset to true");
+    t.end();
+});
+
+tap.test("off() emits a ListenerRemovedEvent on successfully removing a listener", t => {
+    let obs = new BindableObserver(EventEmitter);
+    let l1 = function (event: Event) { event; };
+    let l2 = function (event: Event) { event; };
+    let l3 = function (event: Event) { event; };
+
+    let count = 0;
+    let observer: BindableObserver | undefined = undefined;
+    let listener: ((event: Event) => void) | undefined = undefined;
+    let event: (new (...args: any[]) => Event) | undefined = undefined;
+
+    obs.emitListenerRemovedEvents = true;
+    obs.on(ListenerRemovedEvent, e => {
+        count++;
+        observer = e.observer;
+        listener = e.listener;
+        event = e.event;
+    });
+    obs.on(TestEvent1, l1);
+    obs.on(TestEvent2, l2);
+    obs.off(TestEvent1, l1);
+
+    t.equal(count, 1, "ListenerRemovedEvent emitted after removing an event for off");
+    t.equal(observer, obs, "ListenerRemovedEvent.observer successfully set for off");
+    t.equal(listener, l1, "ListenerRemovedEvent.listener successfully set for off");
+    t.equal(event, TestEvent1, "ListenerRemovedEvent.event successfully set for off");
+
+    obs.off(TestEvent3, l3);
+
+    t.equal(count, 1, "ListenerRemovedEvent not emitted after removing a non-bound listener for off");
+
+    obs.emitListenerRemovedEvents = false;
+    obs.off(TestEvent2, l2);
+
+    t.equal(count, 1, "ListenerRemovedEvent not emitted after being disabled for off");
+    t.end();
+});
+
+tap.test("removeListener() emits a ListenerRemovedEvent on successfully removing a listener", t => {
+    let obs = new BindableObserver(EventEmitter);
+    let l1 = function (event: Event) { event; };
+    let l2 = function (event: Event) { event; };
+    let l3 = function (event: Event) { event; };
+
+    let count = 0;
+    let observer: BindableObserver | undefined = undefined;
+    let listener: ((event: Event) => void) | undefined = undefined;
+    let event: (new (...args: any[]) => Event) | undefined = undefined;
+
+    obs.emitListenerRemovedEvents = true;
+    obs.on(ListenerRemovedEvent, e => {
+        count++;
+        observer = e.observer;
+        listener = e.listener;
+        event = e.event;
+    });
+    obs.on(TestEvent1, l1);
+    obs.on(TestEvent2, l2);
+    obs.removeListener(TestEvent1, l1);
+
+    t.equal(count, 1, "ListenerRemovedEvent emitted after removing an event for removeListener");
+    t.equal(observer, obs, "ListenerRemovedEvent.observer successfully set for removeListener");
+    t.equal(listener, l1, "ListenerRemovedEvent.listener successfully set for removeListener");
+    t.equal(event, TestEvent1, "ListenerRemovedEvent.event successfully set for removeListener");
+
+    obs.removeListener(TestEvent3, l3);
+
+    t.equal(count, 1, "ListenerRemovedEvent not emitted after removing a non-bound listener for removeListener");
+
+    obs.emitListenerRemovedEvents = false;
+    obs.removeListener(TestEvent2, l2);
+
+    t.equal(count, 1, "ListenerRemovedEvent not emitted after being disabled for removeListener");
+    t.end();
+});
+
+tap.test("removeAllListeners(event) emits a ListenerRemovedEvent for each listener removed", t => {
+    let obs = new BindableObserver(EventEmitter);
+    let l1 = function (event: Event) { event; };
+    let l2 = function (event: Event) { event; };
+    let l3 = function (event: Event) { event; };
+    let l4 = function (event: Event) { event; };
+    let l5 = function (event: Event) { event; };
+    let count = 0;
+
+    obs.on(ListenerRemovedEvent, () => {
+        count++;
+    });
+    obs.on(TestEvent1, l1);
+    obs.on(TestEvent2, l2);
+    obs.on(TestEvent2, l3);
+    obs.on(TestEvent3, l4);
+    obs.on(TestEvent3, l5);
+    obs.removeAllListeners(TestEvent1);
+
+    t.equal(count, 1, "ListenerRemovedEvent emitted once after removing all of one listener from an event");
+
+    obs.removeAllListeners(new TestEvent2());
+
+    t.equal(count, 3, "ListenerRemovedEvent emitted twice after removing all of two listeners from an event");
+
+    obs.removeAllListeners(TestEvent2);
+
+    t.equal(count, 3, "ListenerRemovedEvent not emitted after removing no listeners");
+
+    obs.emitListenerRemovedEvents = false;
+    obs.removeAllListeners(TestEvent3);
+
+    t.equal(count, 3, "ListenerRemovedEvent not emitted after being disabled");
+    t.end();
+});
+
+tap.test("removeAllListeners() emits a ListenerRemovedEvent for each listener removed", t => {
     let obs1 = new BindableObserver(EventEmitter);
     let obs2 = new BindableObserver(EventEmitter);
+    let l1 = function (event: Event) { event; };
+    let l2 = function (event: Event) { event; };
+    let l3 = function (event: Event) { event; };
+    let l4 = function (event: Event) { event; };
 
+    let count = 0;
+
+    obs1.emitListenerRemovedEvents = true;
+    obs2.emitListenerRemovedEvents = true;
+    obs1.bind(obs2);
+    obs2.on(ListenerRemovedEvent, () => {
+        count++;
+    });
+    obs1.on(TestEvent1, l1);
+    obs1.on(TestEvent2, l2);
+    obs1.on(TestEvent2, l3);
+    obs1.removeAllListeners();
+
+    t.equal(count, 3, "ListenerRemovedEvent emitted for all listeners after removing all listeners");
+
+    obs1.removeAllListeners();
+
+    t.equal(count, 3, "ListenerRemovedEvent not emitted after removing no listeners");
+
+    obs1.on(TestEvent3, l4);
+    obs1.emitListenerRemovedEvents = false;
+    obs1.removeAllListeners();
+
+    t.equal(count, 3, "ListenerRemovedEvent not emitted after being disabled");
+    t.end();
+});
+
+tap.test("emitObserverBoundEvents setter properly changes property", t => {
+    let obs = new BindableObserver(EventEmitter);
+    obs.emitObserverBoundEvents = true;
+
+    t.equal(obs.emitObserverBoundEvents, true, "emitObserverBoundEvents successfully set to true");
+
+    obs.emitObserverBoundEvents = false;
+
+    t.equal(obs.emitObserverBoundEvents, false, "emitObserverBoundEvents successfully set to false");
+
+    obs.emitObserverBoundEvents = true;
+
+    t.equal(obs.emitObserverBoundEvents, true, "emitObserverBoundEvents successfully reset to true");
+    t.end();
+});
+
+tap.test("bind() emits an ObserverBoundEvent after successfully binding an observer", t => {
+    let obs1 = new BindableObserver(EventEmitter);
+    let obs2 = new BindableObserver(EventEmitter);
+    let obs3 = new BindableObserver(EventEmitter);
+
+    let count = 0;
+    let bindingObserver: BindableObserver | undefined = undefined;
+    let boundedObserver: BindableObserver | undefined = undefined;
+
+    obs1.emitObserverBoundEvents = true;
+    obs1.on(ObserverBoundEvent, e => {
+        count++;
+        bindingObserver = e.bindingObserver;
+        boundedObserver = e.boundedObserver;
+    });
     obs1.bind(obs2);
 
-    t.equal(obs1.checkBinding(obs2), RelayFlags.All, "default binding is RelayFlags.All");
+    t.equal(count, 1, "ObserverBoundEvent successfully emitted after binding two observers");
+    t.equal(bindingObserver, obs1, "ObserverBoundEvent.bindingObserver successfully set for new bind");
+    t.equal(boundedObserver, obs2, "ObserverBoundEvent.boundedObserver successfully set for new bind");
+
+    obs1.emitObserverBoundEvents = false;
+    obs1.bind(obs3);
+
+    t.equal(count, 1, "ObserverBoundEvent not emitted after being disabled for binding a new observer");
     t.end();
 });
 
-// 23: 2, 4, 16, 17, 19, 22
-tap.test("unbind() unbinds observers", t => {
+tap.test("bind() does not emit an ObserverBoundEvent when binding two already bound observers", t => {
     let obs1 = new BindableObserver(EventEmitter);
     let obs2 = new BindableObserver(EventEmitter);
-    let event1 = new TestEvent1();
-    let event2 = new TestEvent2();
-    let evoked1 = false;
-    let evoked2 = false;
-    let setEvokeFunction1: () => void = () => evoked1 = true;
-    let setEvokeFunction2: () => void = () => evoked2 = true;
+    let count = 0;
 
-    obs1.on(TestEvent1, setEvokeFunction1);
-    obs1.bind(obs2, RelayFlags.From);
+    obs1.emitObserverBoundEvents = true;
+    obs1.on(ObserverBoundEvent, () => count++);
+    obs1.bind(obs2);
+    obs1.bind(obs2);
+
+    t.equal(count, 1, "ObserverBoundEvent only emitted once for a single bind");
+    t.end();
+});
+
+tap.test("emitObserverUnboundEvents setter properly changes property", t => {
+    let obs = new BindableObserver(EventEmitter);
+    obs.emitObserverUnboundEvents = true;
+
+    t.equal(obs.emitObserverUnboundEvents, true, "emitObserverUnboundEvents successfully set to true");
+
+    obs.emitObserverUnboundEvents = false;
+
+    t.equal(obs.emitObserverUnboundEvents, false, "emitObserverUnboundEvents successfully set to false");
+
+    obs.emitObserverUnboundEvents = true;
+
+    t.equal(obs.emitObserverUnboundEvents, true, "emitObserverUnboundEvents successfully reset to true");
+    t.end();
+});
+
+tap.test("unbind() emits an ObserverUnboundEvent after successfully unbinding two observers", t => {
+    let obs1 = new BindableObserver(EventEmitter);
+    let obs2 = new BindableObserver(EventEmitter);
+    let obs3 = new BindableObserver(EventEmitter);
+    let obs4 = new BindableObserver(EventEmitter);
+
+    let count = 0;
+    let bindingObserver: BindableObserver | undefined = undefined;
+    let boundedObserver: BindableObserver | undefined = undefined;
+
+    obs1.emitObserverUnboundEvents = true;
+    obs1.on(ObserverUnboundEvent, e => {
+        count++;
+        bindingObserver = e.bindingObserver;
+        boundedObserver = e.boundedObserver;
+    });
+    obs1.bind(obs2);
     obs1.unbind(obs2);
-    obs2.emit(event1);
 
-    t.equal(evoked1, false, "unbinded from RelayFlags.From binding");
+    t.equal(count, 1, "ObserverUnboundEvent emitted after unbinding an observer");
+    t.equal(bindingObserver, obs1, "ObserverUnboundEvent.bindingObserver successfully set");
+    t.equal(boundedObserver, obs2, "ObserverUnboundEvent.boundedObserver successfully set");
 
-    evoked1 = false;
-    obs1.removeListener(TestEvent1, setEvokeFunction1);
-    obs1.clearIdCache();
-
-    obs2.on(TestEvent1, setEvokeFunction1);
-    obs1.bind(obs2, RelayFlags.To);
     obs1.unbind(obs2);
-    obs1.emit(event1);
 
-    t.equal(evoked1, false, "unbinded from RelayFlags.To binding");
+    t.equal(count, 1, "ObserverUnboundEvent not emitted after unbinding an already unbound observer");
 
-    evoked1 = false;
-    obs2.removeListener(TestEvent1, setEvokeFunction1);
-    obs1.clearIdCache();
+    obs1.unbind(obs3);
 
-    obs1.on(TestEvent1, setEvokeFunction1);
-    obs2.on(TestEvent2, setEvokeFunction2);
-    obs1.bind(obs2, RelayFlags.All);
-    obs1.unbind(obs2);
-    obs1.emit(event2);
-    obs2.emit(event1);
+    t.equal(count, 1, "ObserverUnboundEvent not emitted after unbinding an observer that was never bound");
 
-    t.equal(evoked1, false, "unbinded 'from' from RelayFlags.All binding");
-    t.equal(evoked2, false, "unbinded 'to' from RelayFlags.All binding");
-    t.doesNotThrow(() => obs1.unbind(obs2), "unbind does not throw an error when unbinding two non-bound observers");
+    obs1.emitObserverUnboundEvents = false;
+    obs1.bind(obs4);
+    obs1.unbind(obs4);
+
+    t.equal(count, 1, "ObserverUnboundEvent not emitted after being disabled");
     t.end();
 });

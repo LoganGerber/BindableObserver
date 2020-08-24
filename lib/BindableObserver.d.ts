@@ -2,10 +2,22 @@
 import { EventEmitter } from "events";
 import { Event } from "./Event";
 import { EmitEvent } from "./EmitEvent";
-import { UndefinedInternalEmitterError } from "./UndefinedInternalEmitterError";
+import { UndefinedEmitterError } from "./UndefinedEmitterError";
+import { EmitterChangedEvent } from "./EmitterChangedEvent";
+import { ListenerBoundEvent } from "./ListenerBoundEvent";
+import { ListenerRemovedEvent } from "./ListenerRemovedEvent";
+import { CacheLimitChangedEvent } from "./CacheLimitChangedEvent";
+import { ObserverBoundEvent } from "./ObserverBoundEvent";
+import { ObserverUnboundEvent } from "./ObserverUnboundEvent";
 export { Event };
 export { EmitEvent };
-export { UndefinedInternalEmitterError };
+export { UndefinedEmitterError };
+export { EmitterChangedEvent };
+export { ListenerBoundEvent };
+export { ListenerRemovedEvent };
+export { CacheLimitChangedEvent };
+export { ObserverBoundEvent };
+export { ObserverUnboundEvent };
 /**
  * Type representing the structure of a listener callback.
  */
@@ -30,20 +42,6 @@ declare type Listener<T extends Event> = (x: T) => void;
  */
 declare type EventType<T extends Event> = T | (new (...args: any) => T);
 /**
- * Flags used to track how two BindableObservers are bound.
- *
- * - RelayFlags.From sends the bound observer's events to the binding observer.
- * - RelayFlags.To sends the binding observer's events to the bound observer.
- * - RelayFlags.All sends all events from either observer to the other.
- * - RelayFlags.None sends no events between the observers.
- */
-export declare enum RelayFlags {
-    None = 0,
-    To = 1,
-    From = 2,
-    All = 3
-}
-/**
  * Implementation of an Observer pattern bindable to other BindableObservers.
  *
  * BindableObserver is not an EventEmitter, and cannot be used as an
@@ -62,7 +60,7 @@ export declare enum RelayFlags {
  * events. Specify which EventEmitter type is to be used using the generic
  * parameter.
  */
-export declare class BindableObserver<E extends EventEmitter> {
+export declare class BindableObserver {
     /**
      * Change an EventType<T> to a string that can be used to register as an
      * event in the underlying EventEmitter.
@@ -89,8 +87,28 @@ export declare class BindableObserver<E extends EventEmitter> {
      */
     private static generateBubbleFunction;
     /**
-     * List of BindableObservers bound to this BindableObserver, as
-     * well as the functions registered to bind the two.
+     * Get or create a symbol corresponding to the given event.
+     *
+     * This symbol is used for binding or calling the
+     * BindableObserver.prototype.emitter.
+     *
+     * @param event Event type or instance to get a symbol for.
+     * @returns A symbol representing the type of event given.
+     */
+    private static getEventSymbol;
+    /**
+     * Map that relates each Event type with its own symbol internal to the
+     * BindableObserver. These symbols are what are bound to the emitter.
+     */
+    private static symbolMap;
+    /**
+     * Map that relates each symbol to the Event that was used to generate it.
+     */
+    private static inverseSymbolMap;
+    private static emitEventSymbol;
+    /**
+     * List of BindableObservers bound to this BindableObserver, as well as the
+     * functions registered to bind the two.
      */
     private relays;
     /**
@@ -103,15 +121,37 @@ export declare class BindableObserver<E extends EventEmitter> {
      */
     private idCacheLimit;
     /**
-     * Map that relates each Event type with its own symbol internal to the
-     * BindableObserver. These symbols are what are bound to the
-     * internalEmitter.
+     * Should CacheLimitChangeEvents be emitted?
      */
-    private symbolMap;
+    private doCacheLimitChangeEvents;
+    /**
+     * Should EmitterChangedEvents be emitted?
+     */
+    private doEmitterChangedEvents;
+    /**
+     * Should EmitEvents be emitted?
+     */
+    private doEmitEvents;
+    /**
+     * Should ListenerBoundEvents be emitted?
+     */
+    private doListenerBoundEvents;
+    /**
+     * Should ListenerRemovedEvents be emitted?
+     */
+    private doListenerRemovedEvents;
+    /**
+     * Should ObserverBoundEvents be emitted?
+     */
+    private doObserverBoundEvents;
+    /**
+     * Should ObserverUnboundEvents be emitted?
+     */
+    private doObserverUnboundEvents;
     /**
      * Underlying EventEmitter used to handle event binding and emit.
      */
-    protected internalEmitter: E | undefined;
+    protected emitter: EventEmitter | undefined;
     /**
      * Construct a new BindableObserver using the given EventEmitter constructor
      * or EventEmitter subclass instance.
@@ -121,8 +161,8 @@ export declare class BindableObserver<E extends EventEmitter> {
      *
      * If no constructor or instance is given, a BindableObserver will still be
      * constructed. However, any functions involving events will result in
-     * errors being thrown, until an internal emitter is provided using the
-     * setInternalEmitter() function.
+     * errors being thrown, until an emitter is provided using the
+     * setEmitter() function.
      *
      * If constructing a BindableObserver with an instance of an EventEmitter,
      * any preexisting bindings (or bindings made to the instance after
@@ -134,6 +174,11 @@ export declare class BindableObserver<E extends EventEmitter> {
      * via the BindableObserver, no events bound to the EventEmitter will be
      * executed.
      *
+     * Similarly, calling removeAllListeners() will only remove listeners bound
+     * with the BindableObserver. Any listeners bound with the emitter will not
+     * be affected in any way. However, calling removeAllListeners() on the
+     * emitter will still remove any listeners bound with the BindableObserver.
+     *
      * NOTE: While calling events from one does not interfere with the other,
      * binding an Event class to a listener via BindableObserver will still
      * invoke a 'newListener' event in the EventEmitter.
@@ -141,13 +186,97 @@ export declare class BindableObserver<E extends EventEmitter> {
      * @param eventEmitter The type or instance of EventEmitter to use
      * underlying the BindableObserver.
      */
-    constructor(eventEmitter?: (new (...args: any[]) => E) | E, ...args: any[]);
+    constructor(eventEmitter?: (new (...args: any[]) => EventEmitter) | EventEmitter, ...args: any[]);
+    /**
+     * Whether this BindableObserver should emit `CacheLimitChangeEvent`s.
+     *
+     * @returns if `CacheLimitChangeEvent`s are being emitted or not.
+     */
+    get emitCacheLimitChangeEvents(): boolean;
+    /**
+     * Whether this BindableObserver should emit `CacheLimitChangeEvent`s.
+     *
+     * @param val if `CacheLimitChangeEvent`s should be emitted or not.
+     */
+    set emitCacheLimitChangeEvents(val: boolean);
+    /**
+     * Whether this BindableObserver should emit `EmitterChangedEvent`s.
+     *
+     * @returns if `EmitterChangedEvent`s are being emitted or not.
+     */
+    get emitEmitterChangedEvents(): boolean;
+    /**
+     * Whether this BindableObserver should emit `EmitterChangedEvent`s.
+     *
+     * @param val if `EmitterChangedEvent`s should be emitted or not.
+     */
+    set emitEmitterChangedEvents(val: boolean);
+    /**
+     * Whether this BindableObserver should emit `EmitEvent`s.
+     *
+     * @returns if `EmitEvent`s are being emitted or not.
+     */
+    get emitEmitEvents(): boolean;
+    /**
+     * Whether this BindableObserver should emit `EmitEvent`s.
+     *
+     * @param val if `EmitEvent`s should be emitted or not.
+     */
+    set emitEmitEvents(val: boolean);
+    /**
+     * Whether this BindableObserver should emit `ListenerBoundEvent`s.
+     *
+     * @returns if `ListenerBoundEvent`s are being emitted or not.
+     */
+    get emitListenerBoundEvents(): boolean;
+    /**
+     * Whether this BindableObserver should emit `ListenerBoundEvent`s.
+     *
+     * @param val if `ListenerBoundEvent`s should be emitted or not.
+     */
+    set emitListenerBoundEvents(val: boolean);
+    /**
+     * Whether this BindableObserver should emit `ListenerRemovedEvent`s.
+     *
+     * @returns if `ListenerRemovedEvent`s are being emitted or not.
+     */
+    get emitListenerRemovedEvents(): boolean;
+    /**
+     * Whether this BindableObserver should emit `ListenerRemovedEvent`s.
+     *
+     * @param val if `ListenerRemovedEvent`s should be emitted or not.
+     */
+    set emitListenerRemovedEvents(val: boolean);
+    /**
+     * Whether this BindableObserver should emit `ObserverBoundEvent`s.
+     *
+     * @returns if `ObserverBoundEvent`s are being emitted or not.
+     */
+    get emitObserverBoundEvents(): boolean;
+    /**
+     * Whether this BindableObserver should emit `ObserverBoundEvent`s.
+     *
+     * @param val if `ObserverBoundEvent`s should be emitted or not.
+     */
+    set emitObserverBoundEvents(val: boolean);
+    /**
+     * Whether this BindableObserver should emit `ObserverUnboundEvent`s.
+     *
+     * @returns if `ObserverUnboundEvent`s are being emitted or not.
+     */
+    get emitObserverUnboundEvents(): boolean;
+    /**
+     * Whether this BindableObserver should emit `ObserverUnboundEvent`s.
+     *
+     * @param val if `ObserverUnboundEvent`s should be emitted or not.
+     */
+    set emitObserverUnboundEvents(val: boolean);
     /**
      * Get the limit of how many entries can exist in the id cache.
      *
      * @returns The maximum number of ids that can exist in cache.
      */
-    getIdCacheLimit(): number;
+    get cacheLimit(): number;
     /**
      * Set the limit of how many entries can exist in the id cache.
      *
@@ -155,6 +284,9 @@ export declare class BindableObserver<E extends EventEmitter> {
      * id entries, the oldest entries will be purged.
      *
      * Setting the limit to <= 0 will remove the limit.
+     *
+     * If the limit is successfully changed, a `CacheLimitChangedEvent` event
+     * will be emitted.
      *
      * More info on how ids are stored can be found in
      * BindableObserver.prototype.emit documentation.
@@ -164,31 +296,33 @@ export declare class BindableObserver<E extends EventEmitter> {
      *
      * @see BindableObserver.prototype.on for info about storing ids in cache.
      */
-    setIdCacheLimit(limit: number): void;
+    set cacheLimit(limit: number);
     /**
      * Get the current number of ids in cache.
      *
      * @returns The number of ids currently stored in cache.
      */
-    getIdCacheSize(): number;
+    get cacheSize(): number;
     /**
      * Remove all ids from the id cache
      */
-    clearIdCache(): void;
+    clearCache(): void;
     /**
      * Get the current internal EventEmitter.
      *
      * @returns The EventEmitter object used internally for handling events, or
-     * `undefined` if there is no currently set internal emitter.
+     * `undefined` if there is no currently set emitter.
      */
-    getInternalEmitter(): E | undefined;
+    getEmitter(): EventEmitter | undefined;
     /**
-     * Set or changethe internal EventEmitter.
+     * Set or change the internal EventEmitter.
+     *
+     * Emits an `EmitterChangedEvent` before the emitter is changed.
      *
      * @see myBindableObserver.prototype.constructor for notes on how the
      * eventEmitter parameter is used.
      */
-    setInternalEmitter(eventEmitter: (new (...args: any[]) => E) | E, ...args: any[]): void;
+    setEmitter(eventEmitter: (new (...args: any[]) => EventEmitter) | EventEmitter, ...args: any[]): void;
     /**
      * @alias BindableObserver.prototype.on
      */
@@ -222,6 +356,8 @@ export declare class BindableObserver<E extends EventEmitter> {
      * A listener is any function callback. Listeners will be called with a
      * single parameter: the event instance that triggered them.
      *
+     * Emits a `ListenerBoundEvent` after binding the new listener.
+     *
      * @param event The type of Event to bind to. This can either be an Event
      * class or an instance of an Event. Note: Binding to an instance of an
      * event will still allow the listener to be called when ANY instance of
@@ -233,6 +369,8 @@ export declare class BindableObserver<E extends EventEmitter> {
     /**
      * Same as BindableObserver.prototype.on, but the listener is immediately
      * unbound once it is called.
+     *
+     * Emits a `ListenerBoundEvent` after binding the new listener.
      *
      * @param event The type of Event to bind to. This can either be an Event
      * class or an instance of an Event. Note: Binding to an instance of an
@@ -247,6 +385,8 @@ export declare class BindableObserver<E extends EventEmitter> {
      * the list of bound listeners. When the event is emitted, this listener
      * will have priority in execution order.
      *
+     * Emits a `ListenerBoundEvent` after binding the new listener.
+     *
      * @param event The type of Event to bind to. This can either be an Event
      * class or an instance of an Event. Note: Binding to an instance of an
      * event will still allow the listener to be called when ANY instance of
@@ -260,6 +400,8 @@ export declare class BindableObserver<E extends EventEmitter> {
      * the list of bound listeners. When the event is emitted, this listener
      * will have priority in execution order.
      *
+     * Emits a `ListenerBoundEvent` after binding the new listener.
+     *
      * @param event The type of Event to bind to. This can either be an Event
      * class or an instance of an Event. Note: Binding to an instance of an
      * event will still allow the listener to be called when ANY instance of
@@ -272,6 +414,11 @@ export declare class BindableObserver<E extends EventEmitter> {
      * Remove all listeners bound to a type of event. If event is omitted, all
      * listeners are removed from every event type.
      *
+     * A `ListenerRemovedEvent` is emitted for each listener that was removed.
+     *
+     * NOTE: If the event is omitted, any listeners bound using the emitter will
+     * not be affected. This only removes listeners bound to `Event`s.
+     *
      * @param event The type of event to unbind from. This can either be an
      * Event class or an instance of an Event. If this parameter is omitted, all
      * listeners will be removed from every event.
@@ -280,6 +427,8 @@ export declare class BindableObserver<E extends EventEmitter> {
     removeAllListeners<T extends Event>(event?: EventType<T>): this;
     /**
      * Unbind a listener from an event.
+     *
+     * Emits a `ListenerRemovedEvent` if a listener was successfully removed.
      *
      * @param event Event the listener is bound to. This can either be an Event
      * class or an instance of an Event.
@@ -299,30 +448,18 @@ export declare class BindableObserver<E extends EventEmitter> {
     /**
      * Bind a BindableObserver to this BindableObserver.
      *
-     * Bound observers emit their events on the other observer as defined by
-     * the RelayFlags supplied.
-     *
-     * - RelayFlags.None means neither observer sends their events to the other.
-     * - RelayFlags.From means relay emits its events on this observer.
-     * - RelayFlags.To means this observer emits its events on relay.
-     * - RelayFlags.All means both observers emit their events on one another.
-     *
-     * If no RelayFlags argument is provided, RelayFlags.All is used as default.
+     * Bound observers emit their events on the relay observer supplied.
      *
      * @param relay BindableObserver to bind to this observer.
-     * @param relayFlags Direction events should be relayed. Default
-     * RelayFlags.All.
      */
-    bind<T extends EventEmitter>(relay: BindableObserver<T>, relayFlags?: RelayFlags): void;
+    bind(relay: BindableObserver): void;
     /**
-     * Check how a BindableObserver is bound to this observer.
+     * Check if a BindableObserver is bound to this observer.
      *
      * @param relay BindableObserver to check.
-     * @returns RelayFlags specifying the direction events are passed between
-     * the two observers. If relay is not bound to this observer, the function
-     * returns `undefined`.
+     * @returns True if the observer is bound to this observer, false otherwise.
      */
-    checkBinding<T extends EventEmitter>(relay: BindableObserver<T>): RelayFlags | undefined;
+    checkBinding(relay: BindableObserver): boolean;
     /**
      * Unbind a BindableObserver from this BindableObserver.
      *
@@ -331,14 +468,5 @@ export declare class BindableObserver<E extends EventEmitter> {
      *
      * @param relay BindableObserver to unbind from this.
      */
-    unbind<T extends EventEmitter>(relay: BindableObserver<T>): void;
-    /**
-     * Get or create a symbol corresponding to the given event.
-     *
-     * This symbol is used for binding or calling the internalEmitter.
-     *
-     * @param event Event type or instance to get a symbol for.
-     * @returns A symbol representing the type of event given.
-     */
-    private getEventSymbol;
+    unbind(relay: BindableObserver): void;
 }

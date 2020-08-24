@@ -1,6 +1,6 @@
 {
     "name": "bindable-observer",
-    "version": "2.4.1",
+    "version": "3.0.0",
     "description": "Simple implementation of an Observer pattern whose events can be relayed to other BindableObservers.",
     "main": "./lib/BindableObserver.js",
     "scripts": {
