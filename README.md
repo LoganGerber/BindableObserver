@@ -1,6 +1,12 @@
+Like what I do? Consider getting me a cup of coffee.
+
+[![PayPal donation button](https://www.paypalobjects.com/en_US/i/btn/btn_donate_SM.gif "Donate")](https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=NZ9N3AJ8RK8HL&currency_code=USD&source=url)
+
 # BindableObserver
 
     npm i bindable-observer
+
+## Overview
 
 BindableObserver is an implementation of an [Observer pattern](https://en.wikipedia.org/wiki/Observer_pattern) written for Typescript and Javascript.
 
