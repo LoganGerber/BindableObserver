@@ -27,7 +27,7 @@ export { ObserverUnboundEvent };
 /**
  * Type representing the structure of a listener callback.
  */
-type Listener<T extends Event> = (x: T) => void;
+type Listener<T extends Event> = (x: Readonly<T>) => void;
 
 /**
  * Valid types for passing to most BindableObserver functions that take an
