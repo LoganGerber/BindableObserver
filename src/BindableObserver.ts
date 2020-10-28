@@ -5,6 +5,7 @@ import { Guid } from "guid-typescript";
 import { Event } from "./Event";
 import { EmitEvent } from "./EmitEvent";
 import { UndefinedEmitterError } from "./UndefinedEmitterError";
+import { NonUniqueNameRegisteredError } from "./NonUniqueNameRegisteredError";
 import { EmitterChangedEvent } from "./EmitterChangedEvent";
 import { ListenerBoundEvent } from "./ListenerBoundEvent";
 import { ListenerRemovedEvent } from "./ListenerRemovedEvent";
@@ -12,10 +13,12 @@ import { CacheLimitChangedEvent } from "./CacheLimitChangedEvent";
 import { ObserverBoundEvent } from "./ObserverBoundEvent";
 import { ObserverUnboundEvent } from "./ObserverUnboundEvent";
 
+
 // Re-export other classes
 export { Event };
 export { EmitEvent };
 export { UndefinedEmitterError };
+export { NonUniqueNameRegisteredError };
 export { EmitterChangedEvent };
 export { ListenerBoundEvent };
 export { ListenerRemovedEvent };
@@ -86,30 +89,6 @@ type RelayEntry = {
  */
 export class BindableObserver {
     /**
-     * Change an EventType<T> to a string that can be used to register as an
-     * event in the underlying EventEmitter.
-     * 
-     * If the provided event is a function, that means the user passed the class
-     * itself as a parameter. If it's not a function, that means the user passed
-     * an instance of an event.
-     * 
-     * The function returns the class's name, which should be unique to a given
-     * type of Event in any one process. This is how event name collisions are
-     * avoided when binding Events to listeners.
-     * 
-     * @param event Event to get a name from to use as an EventEmitter event.
-     * @returns Name of the event class.
-     */
-    static getRegisterableEventName<T extends Event>(event: EventType<T>): string {
-        if (typeof event === "function") {
-            return event.name + event.toString();
-        }
-
-        return event.constructor.name + event.constructor.toString();
-    }
-
-
-    /**
      * Create the function that will be used to relay events from one
      * BindableObserver to another.
      * 
@@ -123,46 +102,41 @@ export class BindableObserver {
         };
     }
 
+
     /**
-     * Get or create a symbol corresponding to the given event.
-     * 
-     * This symbol is used for binding or calling the
-     * BindableObserver.prototype.emitter.
-     * 
-     * @param event Event type or instance to get a symbol for.
-     * @returns A symbol representing the type of event given.
+     * Underlying EventEmitter used to handle event binding and emit.
      */
-    private static getEventSymbol<E extends Event>(event: EventType<E>): symbol {
-        let constructor: new <X extends Event> (...args: any[]) => X;
-        if (typeof event === "function") {
-            constructor = event as new <X extends Event> (...args: any[]) => X;
-        }
-        else {
-            constructor = event.constructor as new <X extends Event> (...args: any[]) => X;
-        }
-
-        if (!BindableObserver.symbolMap.has(constructor)) {
-            let symbol = Symbol(BindableObserver.getRegisterableEventName(event));
-            BindableObserver.symbolMap.set(constructor, symbol);
-            BindableObserver.inverseSymbolMap.set(symbol, constructor);
-        }
-
-        return BindableObserver.symbolMap.get(constructor) as symbol;
-    }
-
+    protected emitter: EventEmitter | undefined;
 
     /**
      * Map that relates each Event type with its own symbol internal to the
      * BindableObserver. These symbols are what are bound to the emitter.
      */
-    private static symbolMap: Map<new <T extends Event>(...args: any[]) => T, symbol> = new Map<new <T extends Event>(...args: any[]) => T, symbol>();
+    protected eventSymbolMap = new Map<new <T extends Event>(...args: any[]) => T, symbol>();
 
     /**
      * Map that relates each symbol to the Event that was used to generate it.
+     * 
+     * This is used in removeAllListeners(). The event strings/symbols from the
+     * emitter are iterated through, and the constructors are got using this
+     * member.
      */
-    private static inverseSymbolMap: Map<symbol, new <T extends Event>(...args: any[]) => T> = new Map<symbol, new <T extends Event>(...args: any[]) => T>();
+    protected inverseSymbolMap = new Map<symbol, new <T extends Event>(...args: any[]) => T>();
 
-    private static emitEventSymbol: symbol = BindableObserver.getEventSymbol(EmitEvent);
+    /**
+     * Internal registry of unique names from Events, and the Events they were
+     * obtained from.
+     * 
+     * This is not used in BindableObserver, but can be used in children of
+     * BindableObserver. For example, it can be used to assist in serialization
+     * or deserialization of Events.
+     */
+    protected uniqueNameMap = new Map<string, new <T extends Event>(...args: any[]) => T>();
+
+    /**
+     * Mapping of Events to user-defined symbols.
+     */
+    protected overrideEventSymbolMap = new Map<new <T extends Event>(...args: any[]) => T, symbol>();
 
 
     /**
@@ -217,11 +191,20 @@ export class BindableObserver {
      */
     private doObserverUnboundEvents: boolean;
 
+    /**
+     * Symbol used for EmitEvents.
+     * 
+     * This member is used for when removeAllListeners() is called, so that the
+     * listeners used to bind BindableObservers are not removed as well.
+     */
+    private emitEventSymbol: symbol;
 
     /**
-     * Underlying EventEmitter used to handle event binding and emit.
+     * When setEventSymbol() is called, and the Event's uniqueName has already
+     * been registered in this BindableObserver, should an error be thrown? If
+     * false, setEventSymbol() returns `false` instead of throwing an error.
      */
-    protected emitter: EventEmitter | undefined;
+    private throwNonUniqueNameErrors: boolean = true;
 
 
     /**
@@ -270,6 +253,8 @@ export class BindableObserver {
         this.doListenerRemovedEvents = true;
         this.doObserverBoundEvents = true;
         this.doObserverUnboundEvents = true;
+
+        this.emitEventSymbol = this.getOrCreateEventSymbol(EmitEvent) as symbol;
 
         if (eventEmitter) {
             this.setEmitter(eventEmitter, ...args);
@@ -403,6 +388,30 @@ export class BindableObserver {
         this.doObserverUnboundEvents = val;
     }
 
+    /**
+     * When setEventSymbol() is called, and the Event's uniqueName has already
+     * been registered in this BindableObserver, should an error be thrown? If
+     * false, setEventSymbol() returns `false` instead of throwing an error.
+     * 
+     * @returns if an error should be thrown when registering an Event without a
+     * unique name.
+     */
+    get throwOnNonUniqueEventName(): boolean {
+        return this.throwNonUniqueNameErrors;
+    }
+
+    /**
+     * When setEventSymbol() is called, and the Event's uniqueName has already
+     * been registered in this BindableObserver, should an error be thrown? If
+     * false, setEventSymbol() returns `false` instead of throwing an error.
+     * 
+     * @param val if an error should be thrown when registering an Event without
+     * a unique name.
+     */
+    set throwOnNonUniqueEventName(val: boolean) {
+        this.throwNonUniqueNameErrors = val;
+    }
+
 
 
     /**
@@ -468,7 +477,7 @@ export class BindableObserver {
      */
     clearCache(): void {
         this.idCache = [];
-    }
+    };
 
 
     /**
@@ -553,12 +562,16 @@ export class BindableObserver {
         // Add the event id to the id cache
         this.idCache.push(event.id);
 
+        let eventSymbol = this.getOrCreateEventSymbol(event);
+        if (!eventSymbol) {
+            return false;
+        }
 
-        let ret = this.emitter.emit(BindableObserver.getEventSymbol(event), event);
+        let ret = this.emitter.emit(eventSymbol, event);
 
         if (this.doEmitEvents) {
             let invokeEvent = new EmitEvent(event);
-            this.emitter.emit(BindableObserver.getEventSymbol(invokeEvent), invokeEvent);
+            this.emitter.emit(this.getOrCreateEventSymbol(invokeEvent) as symbol, invokeEvent);
         }
 
         return ret;
@@ -591,7 +604,11 @@ export class BindableObserver {
             throw new UndefinedEmitterError();
         }
 
-        let eventName = BindableObserver.getEventSymbol(event);
+        let eventName = this.getOrCreateEventSymbol(event);
+        if (!eventName) {
+            return this;
+        }
+
         this.emitter.on(eventName, listener);
 
         if (this.doListenerBoundEvents) {
@@ -619,7 +636,10 @@ export class BindableObserver {
             throw new UndefinedEmitterError();
         }
 
-        let eventName = BindableObserver.getEventSymbol(event);
+        let eventName = this.getOrCreateEventSymbol(event);
+        if (!eventName) {
+            return this;
+        }
 
         this.emitter.once(eventName, listener);
 
@@ -649,7 +669,10 @@ export class BindableObserver {
             throw new UndefinedEmitterError();
         }
 
-        let eventName = BindableObserver.getEventSymbol(event);
+        let eventName = this.getOrCreateEventSymbol(event);
+        if (!eventName) {
+            return this;
+        }
 
         this.emitter.prependListener(eventName, listener);
 
@@ -679,7 +702,10 @@ export class BindableObserver {
             throw new UndefinedEmitterError();
         }
 
-        let eventName = BindableObserver.getEventSymbol(event);
+        let eventName = this.getOrCreateEventSymbol(event);
+        if (!eventName) {
+            return this;
+        }
 
         this.emitter.prependOnceListener(eventName, listener);
 
@@ -710,12 +736,15 @@ export class BindableObserver {
         }
 
         if (event) {
-            let eventName = BindableObserver.getEventSymbol(event);
+            let eventName = this.getEventSymbol(event);
+            if (!eventName) {
+                return this;
+            }
 
             let listeners: ((event: Event) => void)[] = [];
 
             // if eventName is the symbol for EmitEvent
-            if (eventName === BindableObserver.emitEventSymbol) {
+            if (eventName === this.emitEventSymbol) {
                 // Get all the EmitEvent listeners
                 listeners = this.emitter.listeners(eventName) as ((event: Event) => void)[];
 
@@ -744,7 +773,7 @@ export class BindableObserver {
         else {
             for (const event of this.emitter.eventNames()) {
                 let eventType: (new (...args: any[]) => T) | undefined;
-                if (typeof event === "symbol" && (eventType = BindableObserver.inverseSymbolMap.get(event))) {
+                if (typeof event === "symbol" && (eventType = this.inverseSymbolMap.get(event))) {
                     this.removeAllListeners(eventType);
                 }
             }
@@ -768,7 +797,10 @@ export class BindableObserver {
             throw new UndefinedEmitterError();
         }
 
-        let eventName = BindableObserver.getEventSymbol(event);
+        let eventName = this.getEventSymbol(event);
+        if (!eventName) {
+            return this;
+        }
 
         if (this.hasListener(event, listener)) {
             this.emitter.removeListener(eventName, listener);
@@ -794,7 +826,11 @@ export class BindableObserver {
             throw new UndefinedEmitterError();
         }
 
-        let eventName = BindableObserver.getEventSymbol(event);
+        let eventName = this.getEventSymbol(event);
+        if (!eventName) {
+            return false;
+        }
+
         return this.emitter.listeners(eventName).includes(listener);
     }
 
@@ -859,5 +895,204 @@ export class BindableObserver {
         if (this.doObserverUnboundEvents && this.emitter) {
             this.emit(new ObserverUnboundEvent(this, relay));
         }
+    }
+
+
+    /**
+     * Gets the symbol corresponding to the given event.
+     * 
+     * This symbol is used for binding or calling
+     * `BindableObserver.prototype.emitter`.
+     * 
+     * If the Event does not have a symbol already registered, a new symbol is
+     * created using `BindableObserver.prototype.setEventSymbol(event)`.
+     * 
+     * @param event Event type or instance to get a symbol for.
+     * @returns A symbol representing the type of event given, or `undefined` if
+     * `BindableObserver.prototype.setEventSymbol` was called and returned false.
+     */
+    getOrCreateEventSymbol<E extends Event>(event: EventType<E>): symbol | undefined {
+        let constructor: new <X extends Event>(...args: any[]) => X;
+        if (typeof event === "function") {
+            constructor = event as new <X extends Event>(...args: any[]) => X;
+        }
+        else {
+            constructor = event.constructor as new <X extends Event>(...args: any[]) => X;
+        }
+
+        let overrideSymbol = this.overrideEventSymbolMap.get(constructor);
+        if (overrideSymbol) {
+            return overrideSymbol;
+        }
+
+        let sym = this.eventSymbolMap.get(constructor);
+        if (!sym) {
+            if (!this.registerEvent(event)) {
+                return undefined;
+            }
+
+            sym = this.eventSymbolMap.get(constructor);
+        }
+
+        return sym;
+    }
+
+    getEventSymbol<E extends Event>(event: EventType<E>): symbol | undefined {
+        let constructor: new <X extends Event>(...args: any[]) => X;
+        if (typeof event === "function") {
+            constructor = event as new <X extends Event>(...args: any[]) => X;
+        }
+        else {
+            constructor = event.constructor as new <X extends Event>(...args: any[]) => X;
+        }
+
+        let overrideSymbol = this.overrideEventSymbolMap.get(constructor);
+        if (overrideSymbol) {
+            return overrideSymbol;
+        }
+
+        return this.eventSymbolMap.get(constructor);
+    }
+
+    /**
+     * Register an Event with the BindableObserver.
+     * 
+     * This symbol is used for binding or calling the
+     * BindableObserver.prototype.emitter.
+     * 
+     * If the Event does not have a symbol already registered, a new symbol is
+     * created using the Event's uniqueName property. If this uniqueName was
+     * already used to create a symbol (i.e. it was found on a different Event
+     * as well), one of two behaviors occur.
+     * 1. If `BindableObserver.prototype.throwOnNonUniqueEventName` is set, a
+     * `NonUniqueNameRegisteredError` is thrown.
+     * 2. If `BindableObserver.prototype.throwOnNonUniqueEventName` is not set,
+     * the function returns `false`.
+     * 
+     * Events can be registered with a different `forceUniqueSymbol` setting
+     * after being set once, without needing to remove them first.
+     * 
+     * @param event Event type to create a symbol for.
+     * @param forceUniqueSymbol allow this event to be registered without caring
+     * about its uniqueName attribute. This is to assist when two different
+     * Event types are registered with identical uniqueNames. Defaults to
+     * `false`.Note: Internally, if forceUniqueSymbol is set, the Event
+     * information is not populated into
+     * `BindableObserver.prototype.eventSymbolMap`,
+     * `BindableObserver.prototype.inverseSymbolMap`, or
+     * `BindableObserver.prototype.uniqueNameMap`.
+     * @returns `true` if the Event was successfully registered, `false`
+     * otherwise if `BindableObserver.prototype.throwOnNonUniqueEventName` isn't
+     * set.
+     * @throws `NonUniqueNameRegisteredError` if the registered Event's
+     * uniqueName was used on another registered Event, and
+     * `BindableObserver.prototype.throwOnNonUniqueEventName` is set.
+     */
+    registerEvent<E extends Event>(event: EventType<E>, forceUniqueSymbol: boolean = false): boolean {
+        let constructor: new <T extends Event>(...args: any[]) => T;
+        let name: string;
+
+        // Get the constructor function for the event
+        if (typeof event === "function") {
+            constructor = event as new <T extends Event>(...args: any[]) => T;
+            name = (new event()).uniqueName;
+        }
+        else {
+            constructor = event.constructor as new <T extends Event>(...args: any[]) => T;
+            name = event.uniqueName;
+        }
+
+        // Check if a symbol has already been made for the constructor
+        let hasSymbol = this.eventSymbolMap.has(constructor);
+        let hasOverrideSymbol = this.overrideEventSymbolMap.has(constructor);
+
+        // If there already exists a symbol for the constructor, early return true.
+        if (forceUniqueSymbol) {
+            if (hasOverrideSymbol) {
+                return true;
+            }
+        }
+        else if (hasSymbol) {
+            return true;
+        }
+
+        if (forceUniqueSymbol) {
+            // If the symbol exists, but is switching between unique <-> nonUnique
+            if (hasSymbol) {
+                let oldSym = this.eventSymbolMap.get(constructor) as symbol;
+                this.eventSymbolMap.delete(constructor);
+                this.inverseSymbolMap.delete(oldSym);
+                this.uniqueNameMap.delete(name);
+
+                this.overrideEventSymbolMap.set(constructor, oldSym);
+            }
+            else {
+                this.overrideEventSymbolMap.set(constructor, Symbol(name));
+            }
+        }
+        else {
+            if (this.uniqueNameMap.has(name)) {
+                if (this.throwOnNonUniqueEventName) {
+                    throw new NonUniqueNameRegisteredError(name, this.uniqueNameMap.get(name) as new <T extends Event>(...args: any[]) => T, constructor);
+                }
+                else {
+                    return false;
+                }
+            }
+            if (hasOverrideSymbol) {
+                let oldSym = this.overrideEventSymbolMap.get(constructor) as symbol;
+                this.overrideEventSymbolMap.delete(constructor);
+
+                this.eventSymbolMap.set(constructor, oldSym);
+                this.inverseSymbolMap.set(oldSym, constructor);
+                this.uniqueNameMap.set(name, constructor);
+            }
+            else {
+                let symbol = Symbol(name);
+                this.eventSymbolMap.set(constructor, symbol);
+                this.inverseSymbolMap.set(symbol, constructor);
+                this.uniqueNameMap.set(name, constructor);
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Unregister an Event from the BindableObserver.
+     * 
+     * Note: This function does not remove any listeners that might be bound to
+     * this Event.
+     * 
+     * @param event Event to unregister from the BindableObserver.
+     * @returns `true` if the Event was successfully unregistered, `false`
+     * otherwise.
+     */
+    unregisterEvent<E extends Event>(event: EventType<E>): boolean {
+        let constructor: new <T extends Event>(...args: any[]) => T;
+        let name: string;
+        if (typeof event === "function") {
+            constructor = event as new <T extends Event>(...args: any[]) => T;
+            name = (new event()).uniqueName;
+        }
+        else {
+            constructor = event.constructor as new <T extends Event>(...args: any[]) => T;
+            name = event.uniqueName;
+        }
+
+        if (this.overrideEventSymbolMap.delete(constructor)) {
+            return true;
+        }
+
+        if (!this.eventSymbolMap.has(constructor)) {
+            return false;
+        }
+
+        let oldSym = this.eventSymbolMap.get(constructor) as symbol;
+        this.eventSymbolMap.delete(constructor);
+        this.inverseSymbolMap.delete(oldSym);
+        this.uniqueNameMap.delete(name);
+
+        return true;
     }
 }

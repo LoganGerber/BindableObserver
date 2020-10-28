@@ -35,7 +35,7 @@ export class EmitterChangedEvent extends Event {
     }
 
 
-    name(): string | symbol {
-        return "Emitter Changed";
-    }
+    name(): string { return "Emitter Changed"; }
+
+    get uniqueName(): string { return "LoganGerber-BindableObserver-EmitterChangedEvent"; }
 }

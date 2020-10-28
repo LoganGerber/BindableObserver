@@ -3,6 +3,7 @@ import { EventEmitter } from "events";
 import { Event } from "./Event";
 import { EmitEvent } from "./EmitEvent";
 import { UndefinedEmitterError } from "./UndefinedEmitterError";
+import { NonUniqueNameRegisteredError } from "./NonUniqueNameRegisteredError";
 import { EmitterChangedEvent } from "./EmitterChangedEvent";
 import { ListenerBoundEvent } from "./ListenerBoundEvent";
 import { ListenerRemovedEvent } from "./ListenerRemovedEvent";
@@ -12,6 +13,7 @@ import { ObserverUnboundEvent } from "./ObserverUnboundEvent";
 export { Event };
 export { EmitEvent };
 export { UndefinedEmitterError };
+export { NonUniqueNameRegisteredError };
 export { EmitterChangedEvent };
 export { ListenerBoundEvent };
 export { ListenerRemovedEvent };
@@ -62,22 +64,6 @@ declare type EventType<T extends Event> = T | (new (...args: any) => T);
  */
 export declare class BindableObserver {
     /**
-     * Change an EventType<T> to a string that can be used to register as an
-     * event in the underlying EventEmitter.
-     *
-     * If the provided event is a function, that means the user passed the class
-     * itself as a parameter. If it's not a function, that means the user passed
-     * an instance of an event.
-     *
-     * The function returns the class's name, which should be unique to a given
-     * type of Event in any one process. This is how event name collisions are
-     * avoided when binding Events to listeners.
-     *
-     * @param event Event to get a name from to use as an EventEmitter event.
-     * @returns Name of the event class.
-     */
-    static getRegisterableEventName<T extends Event>(event: EventType<T>): string;
-    /**
      * Create the function that will be used to relay events from one
      * BindableObserver to another.
      *
@@ -87,25 +73,35 @@ export declare class BindableObserver {
      */
     private static generateBubbleFunction;
     /**
-     * Get or create a symbol corresponding to the given event.
-     *
-     * This symbol is used for binding or calling the
-     * BindableObserver.prototype.emitter.
-     *
-     * @param event Event type or instance to get a symbol for.
-     * @returns A symbol representing the type of event given.
+     * Underlying EventEmitter used to handle event binding and emit.
      */
-    private static getEventSymbol;
+    protected emitter: EventEmitter | undefined;
     /**
      * Map that relates each Event type with its own symbol internal to the
      * BindableObserver. These symbols are what are bound to the emitter.
      */
-    private static symbolMap;
+    protected eventSymbolMap: Map<(new <T extends Event>(...args: any[]) => T), symbol>;
     /**
      * Map that relates each symbol to the Event that was used to generate it.
+     *
+     * This is used in removeAllListeners(). The event strings/symbols from the
+     * emitter are iterated through, and the constructors are got using this
+     * member.
      */
-    private static inverseSymbolMap;
-    private static emitEventSymbol;
+    protected inverseSymbolMap: Map<symbol, new <T extends Event>(...args: any[]) => T>;
+    /**
+     * Internal registry of unique names from Events, and the Events they were
+     * obtained from.
+     *
+     * This is not used in BindableObserver, but can be used in children of
+     * BindableObserver. For example, it can be used to assist in serialization
+     * or deserialization of Events.
+     */
+    protected uniqueNameMap: Map<string, new <T extends Event>(...args: any[]) => T>;
+    /**
+     * Mapping of Events to user-defined symbols.
+     */
+    protected overrideEventSymbolMap: Map<(new <T extends Event>(...args: any[]) => T), symbol>;
     /**
      * List of BindableObservers bound to this BindableObserver, as well as the
      * functions registered to bind the two.
@@ -149,9 +145,18 @@ export declare class BindableObserver {
      */
     private doObserverUnboundEvents;
     /**
-     * Underlying EventEmitter used to handle event binding and emit.
+     * Symbol used for EmitEvents.
+     *
+     * This member is used for when removeAllListeners() is called, so that the
+     * listeners used to bind BindableObservers are not removed as well.
      */
-    protected emitter: EventEmitter | undefined;
+    private emitEventSymbol;
+    /**
+     * When setEventSymbol() is called, and the Event's uniqueName has already
+     * been registered in this BindableObserver, should an error be thrown? If
+     * false, setEventSymbol() returns `false` instead of throwing an error.
+     */
+    private throwNonUniqueNameErrors;
     /**
      * Construct a new BindableObserver using the given EventEmitter constructor
      * or EventEmitter subclass instance.
@@ -271,6 +276,24 @@ export declare class BindableObserver {
      * @param val if `ObserverUnboundEvent`s should be emitted or not.
      */
     set emitObserverUnboundEvents(val: boolean);
+    /**
+     * When setEventSymbol() is called, and the Event's uniqueName has already
+     * been registered in this BindableObserver, should an error be thrown? If
+     * false, setEventSymbol() returns `false` instead of throwing an error.
+     *
+     * @returns if an error should be thrown when registering an Event without a
+     * unique name.
+     */
+    get throwOnNonUniqueEventName(): boolean;
+    /**
+     * When setEventSymbol() is called, and the Event's uniqueName has already
+     * been registered in this BindableObserver, should an error be thrown? If
+     * false, setEventSymbol() returns `false` instead of throwing an error.
+     *
+     * @param val if an error should be thrown when registering an Event without
+     * a unique name.
+     */
+    set throwOnNonUniqueEventName(val: boolean);
     /**
      * Get the limit of how many entries can exist in the id cache.
      *
@@ -469,4 +492,65 @@ export declare class BindableObserver {
      * @param relay BindableObserver to unbind from this.
      */
     unbind(relay: BindableObserver): void;
+    /**
+     * Gets the symbol corresponding to the given event.
+     *
+     * This symbol is used for binding or calling
+     * `BindableObserver.prototype.emitter`.
+     *
+     * If the Event does not have a symbol already registered, a new symbol is
+     * created using `BindableObserver.prototype.setEventSymbol(event)`.
+     *
+     * @param event Event type or instance to get a symbol for.
+     * @returns A symbol representing the type of event given, or `undefined` if
+     * `BindableObserver.prototype.setEventSymbol` was called and returned false.
+     */
+    getOrCreateEventSymbol<E extends Event>(event: EventType<E>): symbol | undefined;
+    getEventSymbol<E extends Event>(event: EventType<E>): symbol | undefined;
+    /**
+     * Register an Event with the BindableObserver.
+     *
+     * This symbol is used for binding or calling the
+     * BindableObserver.prototype.emitter.
+     *
+     * If the Event does not have a symbol already registered, a new symbol is
+     * created using the Event's uniqueName property. If this uniqueName was
+     * already used to create a symbol (i.e. it was found on a different Event
+     * as well), one of two behaviors occur.
+     * 1. If `BindableObserver.prototype.throwOnNonUniqueEventName` is set, a
+     * `NonUniqueNameRegisteredError` is thrown.
+     * 2. If `BindableObserver.prototype.throwOnNonUniqueEventName` is not set,
+     * the function returns `false`.
+     *
+     * Events can be registered with a different `forceUniqueSymbol` setting
+     * after being set once, without needing to remove them first.
+     *
+     * @param event Event type to create a symbol for.
+     * @param forceUniqueSymbol allow this event to be registered without caring
+     * about its uniqueName attribute. This is to assist when two different
+     * Event types are registered with identical uniqueNames. Defaults to
+     * `false`.Note: Internally, if forceUniqueSymbol is set, the Event
+     * information is not populated into
+     * `BindableObserver.prototype.eventSymbolMap`,
+     * `BindableObserver.prototype.inverseSymbolMap`, or
+     * `BindableObserver.prototype.uniqueNameMap`.
+     * @returns `true` if the Event was successfully registered, `false`
+     * otherwise if `BindableObserver.prototype.throwOnNonUniqueEventName` isn't
+     * set.
+     * @throws `NonUniqueNameRegisteredError` if the registered Event's
+     * uniqueName was used on another registered Event, and
+     * `BindableObserver.prototype.throwOnNonUniqueEventName` is set.
+     */
+    registerEvent<E extends Event>(event: EventType<E>, forceUniqueSymbol?: boolean): boolean;
+    /**
+     * Unregister an Event from the BindableObserver.
+     *
+     * Note: This function does not remove any listeners that might be bound to
+     * this Event.
+     *
+     * @param event Event to unregister from the BindableObserver.
+     * @returns `true` if the Event was successfully unregistered, `false`
+     * otherwise.
+     */
+    unregisterEvent<E extends Event>(event: EventType<E>): boolean;
 }

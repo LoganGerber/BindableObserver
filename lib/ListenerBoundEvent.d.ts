@@ -22,4 +22,5 @@ export declare class ListenerBoundEvent extends Event {
     once: boolean;
     constructor(observer: BindableObserver, listener: (event: Event) => void, event: new (...args: any[]) => Event, once: boolean);
     name(): string;
+    get uniqueName(): string;
 }

@@ -8,5 +8,6 @@ export declare class EmitEvent extends Event {
      */
     emitted: Event;
     constructor(event: Event);
-    name(): string | symbol;
+    name(): string;
+    get uniqueName(): string;
 }

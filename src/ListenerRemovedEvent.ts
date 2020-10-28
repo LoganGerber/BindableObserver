@@ -29,4 +29,6 @@ export class ListenerRemovedEvent extends Event {
     }
 
     name(): string { return "Listener Removed"; }
+
+    get uniqueName(): string { return "LoganGerber-BindableObserver-ListenerRemovedEvent"; }
 }

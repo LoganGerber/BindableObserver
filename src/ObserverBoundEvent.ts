@@ -25,4 +25,6 @@ export class ObserverBoundEvent extends Event {
     }
 
     name(): string { return "Observer Bound"; }
+
+    get uniqueName(): string { return "LoganGerber-BindableObserver-ObserverBoundEvent"; }
 }

@@ -2,12 +2,23 @@ import { EventEmitter } from "events";
 
 import * as tap from "tap";
 
-import { BindableObserver, Event, EmitEvent, UndefinedEmitterError, CacheLimitChangedEvent, EmitterChangedEvent, ListenerBoundEvent, ListenerRemovedEvent, ObserverBoundEvent, ObserverUnboundEvent } from "../lib/BindableObserver";
+import { BindableObserver, Event, EmitEvent, UndefinedEmitterError, CacheLimitChangedEvent, EmitterChangedEvent, ListenerBoundEvent, ListenerRemovedEvent, ObserverBoundEvent, ObserverUnboundEvent, NonUniqueNameRegisteredError } from "../lib/BindableObserver";
 
-class TestEvent1 extends Event { name() { return "TestEvent1"; } };
-class TestEvent2 extends Event { name() { return "TestEvent2"; } };
-class TestEvent3 extends Event { name() { return "TestEvent3"; } };
-class TestEvent4 extends Event { name() { return "TestEvent4"; } };
+class TestEvent1 extends Event {
+    name() { return "TestEvent1"; } get uniqueName() { return "LoganGerber-BindableObserverTest-TestEvent1"; }
+}
+class TestEvent2 extends Event {
+    name() { return "TestEvent2"; } get uniqueName() { return "LoganGerber-BindableObserverTest-TestEvent2"; }
+}
+class TestEvent3 extends Event {
+    name() { return "TestEvent3"; } get uniqueName() { return "LoganGerber-BindableObserverTest-TestEvent3"; }
+}
+class TestEvent4 extends Event {
+    name() { return "TestEvent4"; } get uniqueName() { return "LoganGerber-BindableObserverTest-TestEvent4"; }
+}
+class NonUniqueEvent extends Event {
+    get uniqueName(): string { return "LoganGerber-BindableObserverTest-TestEvent1"; }
+}
 
 class TestEmitter extends EventEmitter {
     constructor(cb: () => void) {
@@ -17,6 +28,7 @@ class TestEmitter extends EventEmitter {
 }
 
 // NOTE: There is no test for checking if emit() correctly emits an Event.
+// TODO: Test removeAllListeners() with unique symbols bound as well
 
 // BindableObserver functions
 tap.test("constructing with different underlying emitters works", t => {
@@ -360,6 +372,13 @@ tap.test("removeAllListeners() does not remove listeners bound using the emitter
     t.end();
 });
 
+tap.test("removeAllListeners(event) does not crash when an unbound event's listeners", t => {
+    let obs = new BindableObserver(EventEmitter);
+
+    t.doesNotThrow(() => { obs.removeAllListeners(TestEvent1); }, "Removed listeners from an unbound event.");
+    t.end();
+});
+
 tap.test("removeAllListeners(EmitEvent) does not remove listeners needed for binding observers", t => {
     let obs1 = new BindableObserver(EventEmitter);
     let obs2 = new BindableObserver(EventEmitter);
@@ -370,10 +389,12 @@ tap.test("removeAllListeners(EmitEvent) does not remove listeners needed for bin
     obs1.emitListenerRemovedEvents = false;
     obs1.emitObserverBoundEvents = false;
     obs1.emitObserverUnboundEvents = false;
+    obs1.emitEmitEvents = true;
     obs2.emitListenerBoundEvents = false;
     obs2.emitListenerRemovedEvents = false;
     obs2.emitObserverBoundEvents = false;
     obs2.emitObserverUnboundEvents = false;
+    obs2.emitEmitEvents = true;
 
     obs1.on(EmitEvent, () => called1 = true);
     obs2.on(EmitEvent, () => called2 = true);
@@ -430,6 +451,8 @@ tap.test("removeListener() unbinds a function from an event", t => {
 
 tap.test("hasListener() checks if a listener is bound to an event", t => {
     let obs = new BindableObserver(EventEmitter);
+    obs.throwOnNonUniqueEventName = false;
+    obs.registerEvent(TestEvent2);
     let f1 = () => { };
     let f2 = () => { };
     let event = new TestEvent1();
@@ -439,6 +462,7 @@ tap.test("hasListener() checks if a listener is bound to an event", t => {
     t.equal(obs.hasListener(TestEvent1, f1), true, "found listener with class");
     t.equal(obs.hasListener(event, f1), true, "found listener with instance");
     t.equal(obs.hasListener(TestEvent1, f2), false, "did not find listener");
+    t.equal(obs.hasListener(NonUniqueEvent, f1), false, ""); // TODO
 
     t.end();
 });
@@ -533,7 +557,7 @@ tap.test("cache limit removes oldest cached items", t => {
 });
 
 
-// BindableObserver event functionality
+// BindableObserver meta-event functionality
 tap.test("emitCacheLimitChangeEvents setter properly changes property", t => {
     let obs = new BindableObserver(EventEmitter);
     obs.emitCacheLimitChangeEvents = true;
@@ -1157,5 +1181,230 @@ tap.test("unbind() emits an ObserverUnboundEvent after successfully unbinding tw
     obs1.unbind(obs4);
 
     t.equal(count, 1, "ObserverUnboundEvent not emitted after being disabled");
+    t.end();
+});
+
+
+// BindableObserver event registration functionality
+tap.test("registerEvent() returns true if an event was registered with a unique name", t => {
+    let obs = new BindableObserver(EventEmitter);
+    obs.throwOnNonUniqueEventName = false;
+    let newEventSet = obs.registerEvent(TestEvent1);
+
+    t.equal(newEventSet, true, "Return true for new symbol set");
+
+    let forcedUniqueSucceeded = obs.registerEvent(NonUniqueEvent, true);
+
+    t.equal(forcedUniqueSucceeded, true, "Return true for forcing a non-unique symbol to be set");
+
+    let duplicateForcedSucceeded = obs.registerEvent(NonUniqueEvent, true);
+
+    t.equal(duplicateForcedSucceeded, true, "Return true for repeated forcing a non-unique symbol to be set");
+    t.end();
+});
+
+tap.test("registerEvent() returns true when changing a non-uniquely bound event to a uniquely bound event", t => {
+    let obs = new BindableObserver(EventEmitter);
+    obs.throwOnNonUniqueEventName = true;
+    obs.registerEvent(TestEvent1);
+
+    t.equal(obs.registerEvent(TestEvent1, true), true, "Changing an event to uniquely-bounded returns true.");
+
+    // TODO: Test to see if TestEvent1 was actually unbounded ununiquely
+
+    t.end();
+});
+
+tap.test("registerEvent() returns true when changing a uniquely bound event to a non-uniquely bound event", t => {
+    let obs = new BindableObserver(EventEmitter);
+    obs.throwOnNonUniqueEventName = true;
+    obs.registerEvent(TestEvent1, true);
+
+    t.equal(obs.registerEvent(TestEvent1), true, "Changing an event to non-uniquely bound returns true.");
+
+    // TODO: Test to see if TestEvent1 was actually unbounded uniquely
+
+    t.end();
+});
+
+tap.test("registerEvent() returns true when rebinding an event", t => {
+    let obs = new BindableObserver(EventEmitter);
+    obs.throwOnNonUniqueEventName = true;
+    obs.registerEvent(TestEvent1);
+    obs.registerEvent(TestEvent2, true);
+
+    t.equal(obs.registerEvent(TestEvent1), true, "Rebinding non-unique event returned true.");
+    t.equal(obs.registerEvent(TestEvent2, true), true, "Rebinding unique event returned true.");
+
+    // TODO: Make sure TestEvent1 and TestEvent2 both still function
+
+    t.end();
+});
+
+tap.test("registerEvent() returns false if an event was registered with a non-unique name and throwOnNonUniqueEventName is not set", t => {
+    let obs = new BindableObserver(EventEmitter);
+    obs.throwOnNonUniqueEventName = false;
+    obs.registerEvent(TestEvent1);
+
+    t.doesNotThrow(() => obs.registerEvent(NonUniqueEvent), "Does not throw when throwOnNonUniqueEventName is not set.");
+    t.equal(obs.registerEvent(NonUniqueEvent), false, "Return false when a non-unique event is registered and throwOnNonUniqueEventName is not set.");
+
+    t.end();
+});
+
+tap.test("registerEvent() throws an error when throwOnNonUniqueEvent is set and a non-unique event is registered", t => {
+    let obs = new BindableObserver(EventEmitter);
+    obs.throwOnNonUniqueEventName = true;
+    obs.registerEvent(TestEvent1);
+
+    t.throws(() => obs.registerEvent(NonUniqueEvent), new NonUniqueNameRegisteredError((new NonUniqueEvent()).uniqueName, TestEvent1 as new <T extends Event>(...args: any) => T, NonUniqueEvent as new <T extends Event>(...args: any) => T), "Registering a non-unique event throws an error when throwOnNonUniqueEventName is set.");
+
+    t.end();
+});
+
+tap.test("getOrCreateEventSymbol() gets the symbol made for an event", t => {
+    let obs = new BindableObserver(EventEmitter);
+    obs.throwOnNonUniqueEventName = false;
+    obs.registerEvent(TestEvent1);
+    obs.registerEvent(TestEvent2);
+    obs.registerEvent(TestEvent3, true);
+    obs.registerEvent(TestEvent4, true);
+
+    // Gets a registered event symbol
+    t.doesNotThrow(() => obs.getOrCreateEventSymbol(TestEvent1), "Does not throw errors when obtaining non-uniquely-registered symbol.");
+
+    let obtainedSymbol = obs.getOrCreateEventSymbol(TestEvent2);
+    t.notEqual(obtainedSymbol, undefined, "Non-uniquely-registered symbol found.");
+    t.equal((obtainedSymbol as symbol & { description: string; }).description, (new TestEvent2()).uniqueName, "Obtained a non-uniquely-registered symbol with the correct description.");
+
+    // Gets an override event symbol
+    t.doesNotThrow(() => obs.getOrCreateEventSymbol(TestEvent3), "Does not throw errors when obtaining uniquely-registered symbol.");
+
+    obtainedSymbol = obs.getOrCreateEventSymbol(TestEvent4);
+    t.notEqual(obtainedSymbol, undefined, "Uniquely-registered symbol found.");
+    t.equal((obtainedSymbol as symbol & { description: string; }).description, (new TestEvent4()).uniqueName, "Obtained a uniquely-registered symbol with the correct description.");
+
+    t.end();
+});
+
+tap.test("getOrCreateEventSymbol() registers an unregistered event and gets its symbol.", t => {
+    let obs = new BindableObserver(EventEmitter);
+    obs.throwOnNonUniqueEventName = false;
+
+    t.doesNotThrow(() => obs.getOrCreateEventSymbol(TestEvent1), "Does not throw errors when getting an unregistered event type.");
+
+    let obtainedSymbol = obs.getOrCreateEventSymbol(TestEvent2);
+    t.notEqual(obtainedSymbol, undefined, "Unregistered event did not result in undefined return.");
+    t.equal((obtainedSymbol as symbol & { description: string; }).description, (new TestEvent2()).uniqueName, "Unregistered event registered and returned as a new symbol.");
+
+    t.end();
+});
+
+tap.test("getOrCreateEventSymbol() throws an error when throwOnNonUniqueEvent is set and an unregistered non-unique event is gotten", t => {
+    let obs = new BindableObserver(EventEmitter);
+    obs.throwOnNonUniqueEventName = true;
+    obs.registerEvent(TestEvent1);
+
+    t.throws(() => obs.getOrCreateEventSymbol(NonUniqueEvent), new NonUniqueNameRegisteredError((new NonUniqueEvent()).uniqueName, TestEvent1 as new <T extends Event>(...args: any) => T, NonUniqueEvent as new <T extends Event>(...args: any) => T), "Getting an unregistered, non-unique event throws an error when throwOnNonUniqueEventName is set.");
+
+    t.end();
+});
+
+tap.test("getOrCreateEventSymbol() returns undefined when throwOnNonUniqueEvent is not set and an unregistered non-unique event is gotten", t => {
+    let obs = new BindableObserver(EventEmitter);
+    obs.throwOnNonUniqueEventName = false;
+    obs.registerEvent(TestEvent1);
+
+    t.doesNotThrow(() => obs.getOrCreateEventSymbol(NonUniqueEvent), "Getting an unregistered, non-unique event does not throw an error when throwOnNonUniqueEventName is not set.");
+
+    t.equal(obs.getOrCreateEventSymbol(NonUniqueEvent), undefined, "Getting an unregistered, non-unique event returns undefined when throwOnNonUniqueEventName is not set.");
+
+    t.end();
+});
+
+tap.test("getEventSymbol() returns the registered event's internal symbol", t => {
+    let obs = new BindableObserver(EventEmitter);
+    obs.throwOnNonUniqueEventName = true;
+    obs.registerEvent(TestEvent1);
+    obs.registerEvent(TestEvent2, true);
+
+    t.notEqual(obs.getEventSymbol(TestEvent1), undefined, "Returned a symbol for a registered event.");
+    t.notEqual(obs.getEventSymbol(TestEvent2), undefined, "Returned a symbol for a registered unique event.");
+    t.equal(obs.getEventSymbol(TestEvent3), undefined, "Returned undefined for non-registered event.");
+
+    t.end();
+});
+
+tap.test("unregisterEvent() returns true when successfully unregistering events", t => {
+    let obs = new BindableObserver(EventEmitter);
+    obs.registerEvent(TestEvent1);
+    obs.registerEvent(TestEvent2, true);
+    obs.registerEvent(TestEvent3);
+    obs.registerEvent(TestEvent4, true);
+
+    t.equal(obs.unregisterEvent(TestEvent1), true, "Return true on unregistering a non-uniquely registered event type.");
+    t.equal(obs.unregisterEvent(TestEvent2), true, "Return true on unregistering a uniquely registered event type.");
+
+    let e3 = new TestEvent3();
+    let e4 = new TestEvent4();
+
+    t.equal(obs.unregisterEvent(e3), true, "Return true on unregistering a non-uniquely registered event instance.");
+    t.equal(obs.unregisterEvent(e4), true, "Return true on unregistering a uniquely registered event instance.");
+
+    // TODO: try registering a non-unique event to make sure the old events were actually unregistered
+
+    t.end();
+});
+
+tap.test("unregisterEvent() returns false when unregistering a non-registered event", t => {
+    let obs = new BindableObserver(EventEmitter);
+
+    t.equal(obs.unregisterEvent(TestEvent1), false, "Return false on unregistering an unregistered event.");
+
+    t.end();
+});
+
+tap.test("emit() handles being unable to create an event symbol when throwOnNonUniqueEvent is set to false", t => {
+    let obs = new BindableObserver(EventEmitter);
+    obs.throwOnNonUniqueEventName = false;
+    obs.registerEvent(TestEvent1);
+
+    t.doesNotThrow(() => { obs.emit(new NonUniqueEvent()); }, "Failing to register an event does not throw an error in emit().");
+    t.end();
+});
+
+tap.test("on() handles being unable to create an event symbol when throwOnNonUniqueEvent is set to false", t => {
+    let obs = new BindableObserver(EventEmitter);
+    obs.throwOnNonUniqueEventName = false;
+    obs.registerEvent(TestEvent1);
+
+    t.doesNotThrow(() => { obs.on(NonUniqueEvent, () => { }); }, "Failing to register an event does not throw an error in on().");
+    t.end();
+});
+
+tap.test("once() handles being unable to create an event symbol when throwOnNonUniqueEvent is set to false", t => {
+    let obs = new BindableObserver(EventEmitter);
+    obs.throwOnNonUniqueEventName = false;
+    obs.registerEvent(TestEvent1);
+
+    t.doesNotThrow(() => { obs.once(NonUniqueEvent, () => { }); }, "Failing to register an event does not throw an error in once().");
+    t.end();
+});
+
+tap.test("prependListener() handles being unable to create an event symbol when throwOnNonUniqueEvent is set to false", t => {
+    let obs = new BindableObserver(EventEmitter);
+    obs.throwOnNonUniqueEventName = false;
+    obs.registerEvent(TestEvent1);
+
+    t.doesNotThrow(() => { obs.prependListener(NonUniqueEvent, () => { }); }, "Failing to register an event does not throw an error in prependListener().");
+    t.end();
+});
+
+tap.test("prependOnceListener() handles being unable to create an event symbol when throwOnNonUniqueEvent is set to false", t => {
+    let obs = new BindableObserver(EventEmitter);
+    obs.throwOnNonUniqueEventName = false;
+    obs.registerEvent(TestEvent1);
+
+    t.doesNotThrow(() => { obs.prependOnceListener(NonUniqueEvent, () => { }); }, "Failing to register an event does not throw an error in prependOnceListener().");
     t.end();
 });

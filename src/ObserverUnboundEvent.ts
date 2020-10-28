@@ -24,4 +24,6 @@ export class ObserverUnboundEvent extends Event {
     }
 
     name(): string { return "Observer Unbound"; }
+
+    get uniqueName(): string { return "LoganGerber-BindableObserver-ObserverUnboundEvent"; }
 }

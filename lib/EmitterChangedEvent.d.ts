@@ -23,5 +23,6 @@ export declare class EmitterChangedEvent extends Event {
      */
     newEmitter: EventEmitter;
     constructor(observer: BindableObserver, formerEmitter: EventEmitter, newEmitter: EventEmitter);
-    name(): string | symbol;
+    name(): string;
+    get uniqueName(): string;
 }

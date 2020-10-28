@@ -15,4 +15,5 @@ export declare class ObserverUnboundEvent extends Event {
     boundedObserver: BindableObserver;
     constructor(bindingObserver: BindableObserver, boundedObserver: BindableObserver);
     name(): string;
+    get uniqueName(): string;
 }

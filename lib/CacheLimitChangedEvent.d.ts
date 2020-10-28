@@ -18,4 +18,5 @@ export declare class CacheLimitChangedEvent extends Event {
     newLimit: number;
     constructor(observer: BindableObserver, formerLimit: number, newLimit: number);
     name(): string;
+    get uniqueName(): string;
 }

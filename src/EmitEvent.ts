@@ -15,7 +15,7 @@ export class EmitEvent extends Event {
         this.emitted = event;
     }
 
-    name(): string | symbol {
-        return "Event Invoked";
-    }
+    name(): string { return "Event Invoked"; }
+
+    get uniqueName(): string { return "LoganGerber-BindableObserver-EmitEvent"; }
 }
