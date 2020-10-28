@@ -1021,13 +1021,14 @@ export class BindableObserver {
             if (hasSymbol) {
                 let oldSym = this.eventSymbolMap.get(constructor) as symbol;
                 this.eventSymbolMap.delete(constructor);
-                this.inverseSymbolMap.delete(oldSym);
                 this.uniqueNameMap.delete(name);
 
                 this.overrideEventSymbolMap.set(constructor, oldSym);
             }
             else {
-                this.overrideEventSymbolMap.set(constructor, Symbol(name));
+                let sym = Symbol(name);
+                this.overrideEventSymbolMap.set(constructor, sym);
+                this.inverseSymbolMap.set(sym, constructor);
             }
         }
         else {
@@ -1044,7 +1045,6 @@ export class BindableObserver {
                 this.overrideEventSymbolMap.delete(constructor);
 
                 this.eventSymbolMap.set(constructor, oldSym);
-                this.inverseSymbolMap.set(oldSym, constructor);
                 this.uniqueNameMap.set(name, constructor);
             }
             else {

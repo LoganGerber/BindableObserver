@@ -28,7 +28,6 @@ class TestEmitter extends EventEmitter {
 }
 
 // NOTE: There is no test for checking if emit() correctly emits an Event.
-// TODO: Test removeAllListeners() with unique symbols bound as well
 
 // BindableObserver functions
 tap.test("constructing with different underlying emitters works", t => {
@@ -326,14 +325,18 @@ tap.test("prependOnceListener() binds a function to an event.", t => {
 
 tap.test("removeAllListeners() unbinds all functions from events", t => {
     let obs = new BindableObserver(EventEmitter);
+    obs.registerEvent(TestEvent4, true);
     let event11 = new TestEvent1();
     let event12 = new TestEvent1();
     let event21 = new TestEvent2();
     let event22 = new TestEvent2();
     let event31 = new TestEvent3();
+    let event41 = new TestEvent4();
+    let event42 = new TestEvent4();
     let ev1Count = 0;
     let ev2Count = 0;
     let ev3Count = 0;
+    let ev4Count = 0;
 
     obs.on(TestEvent1, () => ev1Count++);
     obs.on(TestEvent1, () => ev1Count++);
@@ -341,20 +344,25 @@ tap.test("removeAllListeners() unbinds all functions from events", t => {
     obs.on(TestEvent2, () => ev2Count++);
     obs.on(TestEvent3, () => ev3Count++);
     obs.on(TestEvent3, () => ev3Count++);
+    obs.on(TestEvent4, () => ev4Count++);
     obs.removeAllListeners(TestEvent1);
     obs.emit(event11);
     obs.emit(event12);
     obs.emit(event21);
+    obs.emit(event41);
 
     t.equal(ev1Count, 0, "removed all listeners from an event");
     t.equal(ev2Count, 2, "kept unaffected events and listeners");
+    t.equal(ev4Count, 1, "kept unaffected unique events and listeners");
 
     obs.removeAllListeners();
     obs.emit(event22);
     obs.emit(event31);
+    obs.emit(event42);
 
     t.equal(ev2Count, 2, "removed testevent2 when removing all listeners");
     t.equal(ev3Count, 0, "removed testevent3 when removing all listeners");
+    t.equal(ev4Count, 1, "removed testevent4 (unique) when removing all listeners");
 
     t.end();
 });
