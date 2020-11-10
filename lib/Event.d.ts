@@ -9,6 +9,13 @@ export declare abstract class Event {
     readonly id: Guid;
     constructor();
     /**
+     * Human-readable name for the Event.
+     *
+     * This name should not be used as an identifier for the event, as it is not
+     * required to be unique from other events.
+     */
+    abstract get name(): string;
+    /**
      * Unique name of the Event.
      *
      * This name is suppose to be globally unique to the Event type, because it

@@ -17,6 +17,6 @@ export declare class ListenerRemovedEvent extends Event {
      */
     event: new (...args: any[]) => Event;
     constructor(observer: BindableObserver, listener: (event: Event) => void, event: new (...args: any[]) => Event);
-    name(): string;
+    get name(): string;
     get uniqueName(): string;
 }
