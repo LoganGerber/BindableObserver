@@ -28,7 +28,7 @@ export class CacheLimitChangedEvent extends Event {
         this.newLimit = newLimit;
     }
 
-    name(): string { return "Cache Limit Changed"; }
+    get name(): string { return "Cache Limit Changed"; }
 
     get uniqueName(): string { return "LoganGerber-BindableObserver-CacheLimitChangedEvent"; }
 }
