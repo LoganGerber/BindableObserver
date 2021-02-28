@@ -10,11 +10,12 @@
     "author": "Logan Gerber",
     "license": "MIT",
     "dependencies": {
-        "guid-typescript": "1.0.9"
+        "uuid": "^8.3.2"
     },
     "devDependencies": {
         "@types/node": "14.0.24",
         "@types/tap": "14.10.0",
+        "@types/uuid": "^8.3.0",
         "tap": "14.10.8"
     },
     "homepage": "https://github.com/LoganGerber/BindableObserver",
