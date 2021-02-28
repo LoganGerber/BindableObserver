@@ -1,4 +1,4 @@
-import { Guid } from "guid-typescript";
+import { v1 as UUID } from "uuid";
 
 /**
  * Class that represents an event to be handled by an BindableObserver.
@@ -7,10 +7,10 @@ export abstract class Event {
     /**
      * Unique ID of the Event instance.
      */
-    readonly id: Guid;
+    readonly id: string;
 
     constructor() {
-        this.id = Guid.create();
+        this.id = UUID();
     }
 
     /**
