@@ -6,14 +6,22 @@ import { BindableObserver } from "./BindableObserver";
  */
 export declare class ObserverUnboundEvent extends Event {
     /**
-     * Observer whose `unbind()` function is being called.
+     * @inheritdoc this.bindingObserver
      */
-    bindingObserver: BindableObserver;
+    private _bindingObserver;
     /**
-     * Observer that is being unbound from `bindingObserver`
+     * @inheritdoc this.boundedObserver
      */
-    boundedObserver: BindableObserver;
+    private _boundedObserver;
     constructor(bindingObserver: BindableObserver, boundedObserver: BindableObserver);
+    /**
+    * Observer whose `unbind()` function is being called.
+    */
+    get bindingObserver(): BindableObserver;
+    /**
+    * Observer that is being unbound from `bindingObserver`
+    */
+    get boundedObserver(): BindableObserver;
     get name(): string;
     get uniqueName(): string;
 }

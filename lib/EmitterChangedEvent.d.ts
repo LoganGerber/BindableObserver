@@ -11,18 +11,30 @@ import { BindableObserver } from "./BindableObserver";
  */
 export declare class EmitterChangedEvent extends Event {
     /**
+     * @inheritdoc this.observer
+     */
+    private _observer;
+    /**
+     * @inheritdoc this.formerEmitter
+     */
+    private _formerEmitter;
+    /**
+     * @inheritdoc this.newEmitter
+     */
+    private _newEmitter;
+    constructor(observer: BindableObserver, formerEmitter: EventEmitter, newEmitter: EventEmitter);
+    /**
      * Observer this event was emitted from
      */
-    observer: BindableObserver;
+    get observer(): BindableObserver;
     /**
      * Old emitter being replaced in the `observer`
      */
-    formerEmitter: EventEmitter;
+    get formerEmitter(): EventEmitter;
     /**
      * New emitter being used in the `observer`
      */
-    newEmitter: EventEmitter;
-    constructor(observer: BindableObserver, formerEmitter: EventEmitter, newEmitter: EventEmitter);
+    get newEmitter(): EventEmitter;
     get name(): string;
     get uniqueName(): string;
 }

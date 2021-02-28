@@ -11,31 +11,53 @@ import { BindableObserver } from "./BindableObserver";
  */
 export class EmitterChangedEvent extends Event {
 	/**
+	 * @inheritdoc this.observer
+	 */
+	private _observer: BindableObserver;
+
+	/**
+	 * @inheritdoc this.formerEmitter
+	 */
+	private _formerEmitter: EventEmitter;
+
+	/**
+	 * @inheritdoc this.newEmitter
+	 */
+	private _newEmitter: EventEmitter;
+
+
+	public constructor(observer: BindableObserver, formerEmitter: EventEmitter, newEmitter: EventEmitter) {
+		super();
+
+		this._observer = observer;
+		this._formerEmitter = formerEmitter;
+		this._newEmitter = newEmitter;
+	}
+
+
+	/**
 	 * Observer this event was emitted from
 	 */
-	public observer: BindableObserver;
+	public get observer(): BindableObserver {
+		return this._observer;
+	}
 
 	/**
 	 * Old emitter being replaced in the `observer`
 	 */
-	public formerEmitter: EventEmitter;
+	public get formerEmitter(): EventEmitter {
+		return this._formerEmitter;
+	}
 
 	/**
 	 * New emitter being used in the `observer`
 	 */
-	public newEmitter: EventEmitter;
-
-
-	constructor(observer: BindableObserver, formerEmitter: EventEmitter, newEmitter: EventEmitter) {
-		super();
-
-		this.observer = observer;
-		this.formerEmitter = formerEmitter;
-		this.newEmitter = newEmitter;
+	public get newEmitter(): EventEmitter {
+		return this._newEmitter;
 	}
 
 
-	get name(): string { return "Emitter Changed"; }
+	public get name(): string { return "Emitter Changed"; }
 
-	get uniqueName(): string { return "LoganGerber-BindableObserver-EmitterChangedEvent"; }
+	public get uniqueName(): string { return "LoganGerber-BindableObserver-EmitterChangedEvent"; }
 }

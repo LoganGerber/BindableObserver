@@ -7,9 +7,9 @@ export abstract class Event {
 	/**
 	 * Unique ID of the Event instance.
 	 */
-	readonly id: string;
+	public readonly id: string;
 
-	constructor() {
+	public constructor() {
 		this.id = UUID();
 	}
 
@@ -19,7 +19,7 @@ export abstract class Event {
 	 * This name should not be used as an identifier for the event, as it is not
 	 * required to be unique from other events.
 	 */
-	abstract get name(): string;
+	public abstract get name(): string;
 
 	/**
 	 * Unique name of the Event.
@@ -34,5 +34,5 @@ export abstract class Event {
 	 * 
 	 * Note: This function must never reference "this"
 	 */
-	abstract get uniqueName(): string;
+	public abstract get uniqueName(): string;
 }

@@ -7,23 +7,38 @@ import { BindableObserver } from "./BindableObserver";
  */
 export class ObserverUnboundEvent extends Event {
 	/**
-	 * Observer whose `unbind()` function is being called.
+	 * @inheritdoc this.bindingObserver
 	 */
-	public bindingObserver: BindableObserver;
+	private _bindingObserver: BindableObserver;
 
 	/**
-	 * Observer that is being unbound from `bindingObserver`
+	 * @inheritdoc this.boundedObserver
 	 */
-	public boundedObserver: BindableObserver;
+	private _boundedObserver: BindableObserver;
 
-	constructor(bindingObserver: BindableObserver, boundedObserver: BindableObserver) {
+	public constructor(bindingObserver: BindableObserver, boundedObserver: BindableObserver) {
 		super();
 
-		this.bindingObserver = bindingObserver;
-		this.boundedObserver = boundedObserver;
+		this._bindingObserver = bindingObserver;
+		this._boundedObserver = boundedObserver;
 	}
 
-	get name(): string { return "Observer Unbound"; }
+	/**
+	* Observer whose `unbind()` function is being called.
+	*/
+	public get bindingObserver(): BindableObserver {
+		return this._bindingObserver;
+	}
 
-	get uniqueName(): string { return "LoganGerber-BindableObserver-ObserverUnboundEvent"; }
+	/**
+	* Observer that is being unbound from `bindingObserver`
+	*/
+	public get boundedObserver(): BindableObserver {
+		return this._boundedObserver;
+	}
+
+
+	public get name(): string { return "Observer Unbound"; }
+
+	public get uniqueName(): string { return "LoganGerber-BindableObserver-ObserverUnboundEvent"; }
 }

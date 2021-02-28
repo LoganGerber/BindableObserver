@@ -5,18 +5,30 @@ import { BindableObserver } from "./BindableObserver";
  */
 export declare class CacheLimitChangedEvent extends Event {
     /**
+     * @inheritdoc this.observer
+     */
+    private _observer;
+    /**
+     * @inheritdoc this.formerLimit
+     */
+    private _formerLimit;
+    /**
+     * @inheritdoc this.newLimit
+     */
+    private _newLimit;
+    constructor(observer: BindableObserver, formerLimit: number, newLimit: number);
+    /**
      * BindableObserver this event was emitted from.
      */
-    observer: BindableObserver;
+    get observer(): BindableObserver;
     /**
      * Former cache limit.
      */
-    formerLimit: number;
+    get formerLimit(): number;
     /**
      * New cache limit.
      */
-    newLimit: number;
-    constructor(observer: BindableObserver, formerLimit: number, newLimit: number);
+    get newLimit(): number;
     get name(): string;
     get uniqueName(): string;
 }

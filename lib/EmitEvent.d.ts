@@ -4,10 +4,14 @@ import { Event } from "./Event";
  */
 export declare class EmitEvent extends Event {
     /**
+     * @inheritdoc this.emitted
+     */
+    private _emitted;
+    constructor(event: Event);
+    /**
      * Event that was emitted.
      */
-    emitted: Event;
-    constructor(event: Event);
+    get emitted(): Event;
     get name(): string;
     get uniqueName(): string;
 }

@@ -5,22 +5,38 @@ import { BindableObserver } from "./BindableObserver";
  */
 export declare class ListenerBoundEvent extends Event {
     /**
+     * @inheritdoc this.observer
+     */
+    private _observer;
+    /**
+     * @inheritdoc this.listener
+     */
+    private _listener;
+    /**
+     * @inheritdoc this.event
+     */
+    private _event;
+    /**
+     * @inheritdoc this.once
+     */
+    private _once;
+    constructor(observer: BindableObserver, listener: (event: Event) => void, event: new (...args: any[]) => Event, once: boolean);
+    /**
      * Observer this event was created from
      */
-    observer: BindableObserver;
+    get observer(): BindableObserver;
     /**
      * Listener that was added to the `observer`
      */
-    listener: (event: Event) => void;
+    get listener(): (event: Event) => void;
     /**
      * Event the `listener` was bound on
      */
-    event: new (...args: any[]) => Event;
+    get event(): new (...args: any[]) => Event;
     /**
      * Is the `listener` bound using one of the `once()` functions?
      */
-    once: boolean;
-    constructor(observer: BindableObserver, listener: (event: Event) => void, event: new (...args: any[]) => Event, once: boolean);
+    get once(): boolean;
     get name(): string;
     get uniqueName(): string;
 }

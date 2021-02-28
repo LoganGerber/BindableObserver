@@ -7,14 +7,22 @@ import { BindableObserver } from "./BindableObserver";
  */
 export declare class ObserverBoundEvent extends Event {
     /**
+     * @inheritdoc this.bindingObserver
+     */
+    private _bindingObserver;
+    /**
+     * @inheritdoc this.boundedObserver
+     */
+    private _boundedObserver;
+    constructor(bindingObserver: BindableObserver, boundedObserver: BindableObserver);
+    /**
      * Observer whose `bind()` function is being called.
      */
-    bindingObserver: BindableObserver;
+    get bindingObserver(): BindableObserver;
     /**
      * Observer that is being bound to the `bindingObserver`.
      */
-    boundedObserver: BindableObserver;
-    constructor(bindingObserver: BindableObserver, boundedObserver: BindableObserver);
+    get boundedObserver(): BindableObserver;
     get name(): string;
     get uniqueName(): string;
 }

@@ -506,6 +506,12 @@ export declare class BindableObserver {
      * `BindableObserver.prototype.registerEvent` was called and returned false.
      */
     getOrCreateEventSymbol<E extends Event>(event: EventType<E>): symbol | undefined;
+    /**
+     * Get the symbol associated with an Event.
+     *
+     * @param event Event whose associated symbol is to be retrieved.
+     * @returns symbol associated with the `event`, or `undefined` if no symbol was found (i.e. the `Event` type wasn't registered)
+     */
     getEventSymbol<E extends Event>(event: EventType<E>): symbol | undefined;
     /**
      * Register an Event with the BindableObserver.

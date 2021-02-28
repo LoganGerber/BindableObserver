@@ -5,17 +5,26 @@ import { Event } from "./Event";
  */
 export class EmitEvent extends Event {
 	/**
-	 * Event that was emitted.
+	 * @inheritdoc this.emitted
 	 */
-	emitted: Event;
+	private _emitted: Event;
 
-	constructor(event: Event) {
+	public constructor(event: Event) {
 		super();
 
-		this.emitted = event;
+		this._emitted = event;
 	}
 
-	get name(): string { return "Event Invoked"; }
 
-	get uniqueName(): string { return "LoganGerber-BindableObserver-EmitEvent"; }
+	/**
+	 * Event that was emitted.
+	 */
+	public get emitted(): Event {
+		return this._emitted;
+	}
+
+
+	public get name(): string { return "Event Invoked"; }
+
+	public get uniqueName(): string { return "LoganGerber-BindableObserver-EmitEvent"; }
 }

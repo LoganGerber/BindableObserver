@@ -5,18 +5,30 @@ import { BindableObserver } from "./BindableObserver";
  */
 export declare class ListenerRemovedEvent extends Event {
     /**
+     * @inheritdoc this.observer
+     */
+    private _observer;
+    /**
+     * @inheritdoc this.listener
+     */
+    private _listener;
+    /**
+     * @inheritdoc this.event
+     */
+    private _event;
+    constructor(observer: BindableObserver, listener: (event: Event) => void, event: new (...args: any[]) => Event);
+    /**
      * Observer this event was created from
      */
-    observer: BindableObserver;
+    get observer(): BindableObserver;
     /**
      * Listener that was removed from the `observer`
      */
-    listener: (event: Event) => void;
+    get listener(): (event: Event) => void;
     /**
      * Event that the `listener` was bound to
      */
-    event: new (...args: any[]) => Event;
-    constructor(observer: BindableObserver, listener: (event: Event) => void, event: new (...args: any[]) => Event);
+    get event(): new (...args: any[]) => Event;
     get name(): string;
     get uniqueName(): string;
 }
