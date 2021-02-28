@@ -7,24 +7,24 @@ import { BindableObserver } from "./BindableObserver";
  * changed.
  */
 export class ObserverBoundEvent extends Event {
-    /**
-     * Observer whose `bind()` function is being called.
-     */
-    public bindingObserver: BindableObserver;
+	/**
+	 * Observer whose `bind()` function is being called.
+	 */
+	public bindingObserver: BindableObserver;
 
-    /**
-     * Observer that is being bound to the `bindingObserver`.
-     */
-    public boundedObserver: BindableObserver;
+	/**
+	 * Observer that is being bound to the `bindingObserver`.
+	 */
+	public boundedObserver: BindableObserver;
 
-    constructor(bindingObserver: BindableObserver, boundedObserver: BindableObserver) {
-        super();
+	constructor(bindingObserver: BindableObserver, boundedObserver: BindableObserver) {
+		super();
 
-        this.bindingObserver = bindingObserver;
-        this.boundedObserver = boundedObserver;
-    }
+		this.bindingObserver = bindingObserver;
+		this.boundedObserver = boundedObserver;
+	}
 
-    get name(): string { return "Observer Bound"; }
+	get name(): string { return "Observer Bound"; }
 
-    get uniqueName(): string { return "LoganGerber-BindableObserver-ObserverBoundEvent"; }
+	get uniqueName(): string { return "LoganGerber-BindableObserver-ObserverBoundEvent"; }
 }

@@ -5,19 +5,25 @@ import * as tap from "tap";
 import { BindableObserver, Event, EmitEvent, UndefinedEmitterError, CacheLimitChangedEvent, EmitterChangedEvent, ListenerBoundEvent, ListenerRemovedEvent, ObserverBoundEvent, ObserverUnboundEvent, NonUniqueNameRegisteredError } from "../lib/BindableObserver";
 
 class TestEvent1 extends Event {
-    name() { return "TestEvent1"; } get uniqueName() { return "LoganGerber-BindableObserverTest-TestEvent1"; }
+    get name() { return "TestEvent1"; } get uniqueName() { return "LoganGerber-BindableObserverTest-TestEvent1"; }
 }
 class TestEvent2 extends Event {
-    name() { return "TestEvent2"; } get uniqueName() { return "LoganGerber-BindableObserverTest-TestEvent2"; }
+    get name() { return "TestEvent2"; } get uniqueName() { return "LoganGerber-BindableObserverTest-TestEvent2"; }
 }
 class TestEvent3 extends Event {
-    name() { return "TestEvent3"; } get uniqueName() { return "LoganGerber-BindableObserverTest-TestEvent3"; }
+    get name() { return "TestEvent3"; } get uniqueName() { return "LoganGerber-BindableObserverTest-TestEvent3"; }
 }
 class TestEvent4 extends Event {
-    name() { return "TestEvent4"; } get uniqueName() { return "LoganGerber-BindableObserverTest-TestEvent4"; }
+    get name() { return "TestEvent4"; } get uniqueName() { return "LoganGerber-BindableObserverTest-TestEvent4"; }
 }
 class NonUniqueEvent extends Event {
-    get uniqueName(): string { return "LoganGerber-BindableObserverTest-TestEvent1"; }
+    get name() {
+        return "NonUniqueEvent";
+    }
+
+    get uniqueName(): string {
+        return "LoganGerber-BindableObserverTest-TestEvent1";
+    }
 }
 
 class TestEmitter extends EventEmitter {
@@ -64,16 +70,16 @@ tap.test("constructing with no eventEmitter parameter works", t => {
     let event = new TestEvent1();
     let errorInstance = new UndefinedEmitterError();
 
-    t.throws(() => obs.addListener(event, () => { }), errorInstance, "addListener() throws for incomplete BindableObserver");
+    t.throws(() => obs.addListener(event, () => {}), errorInstance, "addListener() throws for incomplete BindableObserver");
     t.throws(() => obs.emit(event), errorInstance, "emit() throws for incomplete BindableObserver");
-    t.throws(() => obs.off(event, () => { }), errorInstance, "off() throws for incomplete BindableObserver");
-    t.throws(() => obs.on(event, () => { }), errorInstance, "on() throws for incomplete BindableObserver");
-    t.throws(() => obs.once(event, () => { }), errorInstance, "once() throws for incomplete BindableObserver");
-    t.throws(() => obs.prependListener(event, () => { }), errorInstance, "prependListener() throws for incomplete BindableObserver");
-    t.throws(() => obs.prependOnceListener(event, () => { }), errorInstance, "prependOnceListener() throws for incomplete BindableObserver");
+    t.throws(() => obs.off(event, () => {}), errorInstance, "off() throws for incomplete BindableObserver");
+    t.throws(() => obs.on(event, () => {}), errorInstance, "on() throws for incomplete BindableObserver");
+    t.throws(() => obs.once(event, () => {}), errorInstance, "once() throws for incomplete BindableObserver");
+    t.throws(() => obs.prependListener(event, () => {}), errorInstance, "prependListener() throws for incomplete BindableObserver");
+    t.throws(() => obs.prependOnceListener(event, () => {}), errorInstance, "prependOnceListener() throws for incomplete BindableObserver");
     t.throws(() => obs.removeAllListeners(), errorInstance, "removeAllListeners() throws for incomplete BindableObserver");
-    t.throws(() => obs.removeListener(event, () => { }), errorInstance, "removeListener() throws for incomplete BindableObserver");
-    t.throws(() => obs.hasListener(event, () => { }), errorInstance, "hasListener() throws for incomplete BindableObserver");
+    t.throws(() => obs.removeListener(event, () => {}), errorInstance, "removeListener() throws for incomplete BindableObserver");
+    t.throws(() => obs.hasListener(event, () => {}), errorInstance, "hasListener() throws for incomplete BindableObserver");
     t.end();
 });
 
@@ -164,16 +170,16 @@ tap.test("setEmitter() changes the emitter the BindableObserver uses", t => {
     obs.setEmitter(emitter1);
 
     t.equal(obs.getEmitter() === emitter1, true, "Internal emitter equals what it was set to");
-    t.doesNotThrow(() => obs.addListener(event, () => { }), "addListener() throws for incomplete BindableObserver");
+    t.doesNotThrow(() => obs.addListener(event, () => {}), "addListener() throws for incomplete BindableObserver");
     t.doesNotThrow(() => obs.emit(event), "emit() throws for incomplete BindableObserver");
-    t.doesNotThrow(() => obs.off(event, () => { }), "off() throws for incomplete BindableObserver");
-    t.doesNotThrow(() => obs.on(event, () => { }), "on() throws for incomplete BindableObserver");
-    t.doesNotThrow(() => obs.once(event, () => { }), "once() throws for incomplete BindableObserver");
-    t.doesNotThrow(() => obs.prependListener(event, () => { }), "prependListener() throws for incomplete BindableObserver");
-    t.doesNotThrow(() => obs.prependOnceListener(event, () => { }), "prependOnceListener() throws for incomplete BindableObserver");
+    t.doesNotThrow(() => obs.off(event, () => {}), "off() throws for incomplete BindableObserver");
+    t.doesNotThrow(() => obs.on(event, () => {}), "on() throws for incomplete BindableObserver");
+    t.doesNotThrow(() => obs.once(event, () => {}), "once() throws for incomplete BindableObserver");
+    t.doesNotThrow(() => obs.prependListener(event, () => {}), "prependListener() throws for incomplete BindableObserver");
+    t.doesNotThrow(() => obs.prependOnceListener(event, () => {}), "prependOnceListener() throws for incomplete BindableObserver");
     t.doesNotThrow(() => obs.removeAllListeners(), "removeAllListeners() throws for incomplete BindableObserver");
-    t.doesNotThrow(() => obs.removeListener(event, () => { }), "removeListener() throws for incomplete BindableObserver");
-    t.doesNotThrow(() => obs.hasListener(event, () => { }), "hasListener() throws for incomplete BindableObserver");
+    t.doesNotThrow(() => obs.removeListener(event, () => {}), "removeListener() throws for incomplete BindableObserver");
+    t.doesNotThrow(() => obs.hasListener(event, () => {}), "hasListener() throws for incomplete BindableObserver");
 
     obs.setEmitter(emitter2);
 
@@ -461,8 +467,8 @@ tap.test("hasListener() checks if a listener is bound to an event", t => {
     let obs = new BindableObserver(EventEmitter);
     obs.throwOnNonUniqueEventName = false;
     obs.registerEvent(TestEvent2);
-    let f1 = () => { };
-    let f2 = () => { };
+    let f1 = () => {};
+    let f2 = () => {};
     let event = new TestEvent1();
 
     obs.on(TestEvent1, f1);
@@ -470,7 +476,7 @@ tap.test("hasListener() checks if a listener is bound to an event", t => {
     t.equal(obs.hasListener(TestEvent1, f1), true, "found listener with class");
     t.equal(obs.hasListener(event, f1), true, "found listener with instance");
     t.equal(obs.hasListener(TestEvent1, f2), false, "did not find listener");
-    t.equal(obs.hasListener(NonUniqueEvent, f1), false, ""); // TODO
+    t.equal(obs.hasListener(NonUniqueEvent, f1), false, "did not find unbound listener with non-unique name"); // TODO
 
     t.end();
 });
@@ -1386,7 +1392,7 @@ tap.test("on() handles being unable to create an event symbol when throwOnNonUni
     obs.throwOnNonUniqueEventName = false;
     obs.registerEvent(TestEvent1);
 
-    t.doesNotThrow(() => { obs.on(NonUniqueEvent, () => { }); }, "Failing to register an event does not throw an error in on().");
+    t.doesNotThrow(() => { obs.on(NonUniqueEvent, () => {}); }, "Failing to register an event does not throw an error in on().");
     t.end();
 });
 
@@ -1395,7 +1401,7 @@ tap.test("once() handles being unable to create an event symbol when throwOnNonU
     obs.throwOnNonUniqueEventName = false;
     obs.registerEvent(TestEvent1);
 
-    t.doesNotThrow(() => { obs.once(NonUniqueEvent, () => { }); }, "Failing to register an event does not throw an error in once().");
+    t.doesNotThrow(() => { obs.once(NonUniqueEvent, () => {}); }, "Failing to register an event does not throw an error in once().");
     t.end();
 });
 
@@ -1404,7 +1410,7 @@ tap.test("prependListener() handles being unable to create an event symbol when 
     obs.throwOnNonUniqueEventName = false;
     obs.registerEvent(TestEvent1);
 
-    t.doesNotThrow(() => { obs.prependListener(NonUniqueEvent, () => { }); }, "Failing to register an event does not throw an error in prependListener().");
+    t.doesNotThrow(() => { obs.prependListener(NonUniqueEvent, () => {}); }, "Failing to register an event does not throw an error in prependListener().");
     t.end();
 });
 
@@ -1413,6 +1419,6 @@ tap.test("prependOnceListener() handles being unable to create an event symbol w
     obs.throwOnNonUniqueEventName = false;
     obs.registerEvent(TestEvent1);
 
-    t.doesNotThrow(() => { obs.prependOnceListener(NonUniqueEvent, () => { }); }, "Failing to register an event does not throw an error in prependOnceListener().");
+    t.doesNotThrow(() => { obs.prependOnceListener(NonUniqueEvent, () => {}); }, "Failing to register an event does not throw an error in prependOnceListener().");
     t.end();
 });

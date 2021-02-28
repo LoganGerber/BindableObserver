@@ -5,30 +5,30 @@ import { BindableObserver } from "./BindableObserver";
  * Event executed when a BindableObserver's cache limit is changed.
  */
 export class CacheLimitChangedEvent extends Event {
-    /**
-     * BindableObserver this event was emitted from.
-     */
-    public observer: BindableObserver;
+	/**
+	 * BindableObserver this event was emitted from.
+	 */
+	public observer: BindableObserver;
 
-    /**
-     * Former cache limit.
-     */
-    public formerLimit: number;
+	/**
+	 * Former cache limit.
+	 */
+	public formerLimit: number;
 
-    /**
-     * New cache limit.
-     */
-    public newLimit: number;
+	/**
+	 * New cache limit.
+	 */
+	public newLimit: number;
 
-    constructor(observer: BindableObserver, formerLimit: number, newLimit: number) {
-        super();
+	constructor(observer: BindableObserver, formerLimit: number, newLimit: number) {
+		super();
 
-        this.observer = observer;
-        this.formerLimit = formerLimit;
-        this.newLimit = newLimit;
-    }
+		this.observer = observer;
+		this.formerLimit = formerLimit;
+		this.newLimit = newLimit;
+	}
 
-    get name(): string { return "Cache Limit Changed"; }
+	get name(): string { return "Cache Limit Changed"; }
 
-    get uniqueName(): string { return "LoganGerber-BindableObserver-CacheLimitChangedEvent"; }
+	get uniqueName(): string { return "LoganGerber-BindableObserver-CacheLimitChangedEvent"; }
 }

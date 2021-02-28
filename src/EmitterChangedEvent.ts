@@ -10,32 +10,32 @@ import { BindableObserver } from "./BindableObserver";
  * new emitter being set.
  */
 export class EmitterChangedEvent extends Event {
-    /**
-     * Observer this event was emitted from
-     */
-    public observer: BindableObserver;
+	/**
+	 * Observer this event was emitted from
+	 */
+	public observer: BindableObserver;
 
-    /**
-     * Old emitter being replaced in the `observer`
-     */
-    public formerEmitter: EventEmitter;
+	/**
+	 * Old emitter being replaced in the `observer`
+	 */
+	public formerEmitter: EventEmitter;
 
-    /**
-     * New emitter being used in the `observer`
-     */
-    public newEmitter: EventEmitter;
-
-
-    constructor(observer: BindableObserver, formerEmitter: EventEmitter, newEmitter: EventEmitter) {
-        super();
-
-        this.observer = observer;
-        this.formerEmitter = formerEmitter;
-        this.newEmitter = newEmitter;
-    }
+	/**
+	 * New emitter being used in the `observer`
+	 */
+	public newEmitter: EventEmitter;
 
 
-    get name(): string { return "Emitter Changed"; }
+	constructor(observer: BindableObserver, formerEmitter: EventEmitter, newEmitter: EventEmitter) {
+		super();
 
-    get uniqueName(): string { return "LoganGerber-BindableObserver-EmitterChangedEvent"; }
+		this.observer = observer;
+		this.formerEmitter = formerEmitter;
+		this.newEmitter = newEmitter;
+	}
+
+
+	get name(): string { return "Emitter Changed"; }
+
+	get uniqueName(): string { return "LoganGerber-BindableObserver-EmitterChangedEvent"; }
 }
