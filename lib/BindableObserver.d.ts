@@ -75,12 +75,12 @@ export declare class BindableObserver {
     /**
      * Underlying EventEmitter used to handle event binding and emit.
      */
-    protected emitter: EventEmitter | undefined;
+    protected _emitter: EventEmitter | undefined;
     /**
      * Map that relates each Event type with its own symbol internal to the
      * BindableObserver. These symbols are what are bound to the emitter.
      */
-    protected eventSymbolMap: Map<(new <T extends Event>(...args: any[]) => T), symbol>;
+    protected _eventSymbolMap: Map<(new <T extends Event>(...args: any[]) => T), symbol>;
     /**
      * Map that relates each symbol to the Event that was used to generate it.
      *
@@ -88,7 +88,7 @@ export declare class BindableObserver {
      * emitter are iterated through, and the constructors are got using this
      * member.
      */
-    protected inverseSymbolMap: Map<symbol, new <T extends Event>(...args: any[]) => T>;
+    protected _inverseSymbolMap: Map<symbol, new <T extends Event>(...args: any[]) => T>;
     /**
      * Internal registry of unique names from Events, and the Events they were
      * obtained from.
@@ -97,66 +97,66 @@ export declare class BindableObserver {
      * BindableObserver. For example, it can be used to assist in serialization
      * or deserialization of Events.
      */
-    protected uniqueNameMap: Map<string, new <T extends Event>(...args: any[]) => T>;
+    protected _uniqueNameMap: Map<string, new <T extends Event>(...args: any[]) => T>;
     /**
      * Mapping of Events to user-defined symbols.
      */
-    protected overrideEventSymbolMap: Map<(new <T extends Event>(...args: any[]) => T), symbol>;
+    protected _overrideEventSymbolMap: Map<(new <T extends Event>(...args: any[]) => T), symbol>;
     /**
      * List of BindableObservers bound to this BindableObserver, as well as the
      * functions registered to bind the two.
      */
-    private relays;
+    private _relays;
     /**
      * Cache of previously-emitted event ids. If an event is emitted, and its id
      * is found in here, the emit is canceled without anything happening.
      */
-    private idCache;
+    private _idCache;
     /**
      * Limit of how many entries can exist in the idCache array.
      */
-    private idCacheLimit;
+    private _cacheLimit;
     /**
      * Should CacheLimitChangeEvents be emitted?
      */
-    private doCacheLimitChangeEvents;
+    private _emitCacheLimitChangeEvents;
     /**
      * Should EmitterChangedEvents be emitted?
      */
-    private doEmitterChangedEvents;
+    private _emitEmitterChangedEvents;
     /**
      * Should EmitEvents be emitted?
      */
-    private doEmitEvents;
+    private _emitEmitEvents;
     /**
      * Should ListenerBoundEvents be emitted?
      */
-    private doListenerBoundEvents;
+    private _emitListenerBoundEvents;
     /**
      * Should ListenerRemovedEvents be emitted?
      */
-    private doListenerRemovedEvents;
+    private _emitListenerRemovedEvents;
     /**
      * Should ObserverBoundEvents be emitted?
      */
-    private doObserverBoundEvents;
+    private _emitObserverBoundEvents;
     /**
      * Should ObserverUnboundEvents be emitted?
      */
-    private doObserverUnboundEvents;
+    private _emitObserverUnboundEvents;
     /**
      * Symbol used for EmitEvents.
      *
      * This member is used for when removeAllListeners() is called, so that the
      * listeners used to bind BindableObservers are not removed as well.
      */
-    private emitEventSymbol;
+    private _emitEventSymbol;
     /**
      * When setEventSymbol() is called, and the Event's uniqueName has already
      * been registered in this BindableObserver, should an error be thrown? If
      * false, setEventSymbol() returns `false` instead of throwing an error.
      */
-    private throwNonUniqueNameErrors;
+    private _throwNonUniqueNameErrors;
     /**
      * Construct a new BindableObserver using the given EventEmitter constructor
      * or EventEmitter subclass instance.
