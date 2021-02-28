@@ -1,7 +1,5 @@
 import { EventEmitter } from "events";
 
-import { Guid } from "guid-typescript";
-
 import { Event } from "./Event";
 import { EmitEvent } from "./EmitEvent";
 import { UndefinedEmitterError } from "./UndefinedEmitterError";
@@ -149,7 +147,7 @@ export class BindableObserver {
      * Cache of previously-emitted event ids. If an event is emitted, and its id
      * is found in here, the emit is canceled without anything happening.
      */
-    private idCache: Guid[];
+	private idCache: string[];
 
     /**
      * Limit of how many entries can exist in the idCache array.
