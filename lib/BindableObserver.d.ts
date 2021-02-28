@@ -499,11 +499,11 @@ export declare class BindableObserver {
      * `BindableObserver.prototype.emitter`.
      *
      * If the Event does not have a symbol already registered, a new symbol is
-     * created using `BindableObserver.prototype.setEventSymbol(event)`.
+     * created using `BindableObserver.prototype.registerEvent(event)`.
      *
      * @param event Event type or instance to get a symbol for.
      * @returns A symbol representing the type of event given, or `undefined` if
-     * `BindableObserver.prototype.setEventSymbol` was called and returned false.
+     * `BindableObserver.prototype.registerEvent` was called and returned false.
      */
     getOrCreateEventSymbol<E extends Event>(event: EventType<E>): symbol | undefined;
     getEventSymbol<E extends Event>(event: EventType<E>): symbol | undefined;
