@@ -28,7 +28,7 @@ export { ObserverUnboundEvent };
 /**
  * Type representing the structure of a listener callback.
  */
-type Listener<T extends Event> = (x: Readonly<T>) => void;
+export type ListenerType<T extends Event> = (x: Readonly<T>) => void;
 
 /**
  * Valid types for passing to most BindableObserver functions that take an
@@ -48,7 +48,7 @@ type Listener<T extends Event> = (x: Readonly<T>) => void;
  * ```
  * and both behave identically.
  */
-type EventType<T extends Event> = T | (new (...args: any) => T);
+export type EventType<T extends Event> = T | (new (...args: any) => T);
 
 /**
  * Structure for tracking when two BindableObservers are bound together
@@ -520,7 +520,7 @@ export class BindableObserver {
 	/**
 	 * @alias BindableObserver.prototype.on
 	 */
-	public addListener<T extends Event>(event: EventType<T>, listener: Listener<T>): this {
+	public addListener<T extends Event>(event: EventType<T>, listener: ListenerType<T>): this {
 		return this.on(event, listener);
 	}
 
@@ -578,7 +578,7 @@ export class BindableObserver {
 	/**
 	 * @alias BindableObserver.prototype.removeListener
 	 */
-	public off<T extends Event>(event: EventType<T>, listener: Listener<T>): this {
+	public off<T extends Event>(event: EventType<T>, listener: ListenerType<T>): this {
 		return this.removeListener(event, listener);
 	}
 
@@ -597,7 +597,7 @@ export class BindableObserver {
 	 * @param listener Callback to execute when the Event type is emitted.
 	 * @returns Reference to self.
 	 */
-	public on<T extends Event>(event: EventType<T>, listener: Listener<T>): this {
+	public on<T extends Event>(event: EventType<T>, listener: ListenerType<T>): this {
 		if (this._emitter === undefined) {
 			throw new UndefinedEmitterError();
 		}
@@ -629,7 +629,7 @@ export class BindableObserver {
 	 * @param listener Callback to execute when the Event type is emitted.
 	 * @returns Reference to self.
 	 */
-	public once<T extends Event>(event: EventType<T>, listener: Listener<T>): this {
+	public once<T extends Event>(event: EventType<T>, listener: ListenerType<T>): this {
 		if (this._emitter === undefined) {
 			throw new UndefinedEmitterError();
 		}
@@ -662,7 +662,7 @@ export class BindableObserver {
 	 * @param listener Callback to execute when the Event type is emitted.
 	 * @returns Reference to self.
 	 */
-	public prependListener<T extends Event>(event: EventType<T>, listener: Listener<T>): this {
+	public prependListener<T extends Event>(event: EventType<T>, listener: ListenerType<T>): this {
 		if (this._emitter === undefined) {
 			throw new UndefinedEmitterError();
 		}
@@ -695,7 +695,7 @@ export class BindableObserver {
 	 * @param listener Callback to execute when the Event type is emitted.
 	 * @returns Reference to self.
 	 */
-	public prependOnceListener<T extends Event>(event: EventType<T>, listener: Listener<T>): this {
+	public prependOnceListener<T extends Event>(event: EventType<T>, listener: ListenerType<T>): this {
 		if (this._emitter === undefined) {
 			throw new UndefinedEmitterError();
 		}
@@ -790,7 +790,7 @@ export class BindableObserver {
 	 * @param listener Listener to unbind.
 	 * @returns Reference to self.
 	 */
-	public removeListener<T extends Event>(event: EventType<T>, listener: Listener<T>): this {
+	public removeListener<T extends Event>(event: EventType<T>, listener: ListenerType<T>): this {
 		if (this._emitter === undefined) {
 			throw new UndefinedEmitterError();
 		}
@@ -819,7 +819,7 @@ export class BindableObserver {
 	 * @param listener Listener to check for.
 	 * @returns True if the listener is bound to the event, false otherwise.
 	 */
-	public hasListener<T extends Event>(event: EventType<T>, listener: Listener<T>): boolean {
+	public hasListener<T extends Event>(event: EventType<T>, listener: ListenerType<T>): boolean {
 		if (this._emitter === undefined) {
 			throw new UndefinedEmitterError();
 		}
